@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+        http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+ 
+    <parent>
+        <groupId>org.scijava</groupId>
+        <artifactId>pom-scijava</artifactId>
+        <version>26.0.0</version>
+        <relativePath />
+    </parent>
+ 
+    <groupId>fr.pasteur.iah</groupId>
+    <artifactId>dendritedynamicstracker</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+ 
+    <name>Dendrite Dynamics Tracker</name>
+    <description>A Fiji plugin to track the dynamics of dendrites in 2D time-lapse movies.</description>
+    <url>https://github.com/tinevez/DendriteDynamicsTracker</url>
+    <inceptionYear>2019</inceptionYear>
+    <organization>
+        <name>Institut Pasteur / IAH</name>
+        <url>https://research.pasteur.fr/en/team/image-analysis-hub/</url>
+    </organization>
+    <licenses>
+         <license>
+            <name>BSD-style</name>
+            <url>http://pmd.sourceforge.net/license.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+ 
+    <developers>
+        <developer>
+            <id>tinevez</id>
+            <name>Jean-Yves Tinevez</name>
+            <url>https://research.pasteur.fr/en/member/jean-yves-tinevez/</url>
+            <roles>
+                <!-- see https://imagej.net/Team -->
+                <role>founder</role>
+                <role>lead</role>
+                <role>developer</role>
+                <role>debugger</role>
+                <role>reviewer</role>
+                <role>support</role>
+                <role>maintainer</role>
+            </roles>
+        </developer>
+    </developers>
+    <contributors>
+        <contributor>
+            <name>None</name>
+        </contributor>
+    </contributors>
+ 
+    <mailingLists>
+        <mailingList>
+            <name>Image.sc Forum</name>
+            <archive>https://forum.image.sc/</archive>
+        </mailingList>
+    </mailingLists>
+ 
+    <scm>
+        <connection>scm:git:git://github.com/tinevez/DendriteDynamicsTracker</connection>
+        <developerConnection>scm:git:git@github.com:tinevez/DendriteDynamicsTracker</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/tinevez/DendriteDynamicsTracker</url>
+    </scm>
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>http://github.com/tinevez/DendriteDynamicsTracker/issues</url>
+    </issueManagement>
+    <ciManagement>
+        <system>None</system>
+    </ciManagement>
+ 
+    <properties>
+        <main-class>fr.pasteur.iah.dendritedynamicstracker.DendriteDynamicsTracker</main-class>
+        <package-name>fr.pasteur.iah.dendritedynamicstracker</package-name>
+        <license.licenseName>BSD3</license.licenseName>
+        <license.copyrightOwners>Institut Pasteur</license.copyrightOwners>
+    </properties>
+ 
+    <repositories>
+        <repository>
+            <id>imagej.public</id>
+            <url>http://maven.imagej.net/content/groups/public</url>
+        </repository>
+    </repositories>
+ 
+    <dependencies>
+    
+        <!-- ImageJ dependencies -->
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>imagej</artifactId>
+        </dependency>
+        
+        <!-- User-facing commands -->
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej-plugins-commands</artifactId>
+		</dependency>
+ 
+		<!-- Run graphically with the classic (ImageJ 1.x) user interface -->
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej-legacy</artifactId>
+		</dependency>
+ 
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
