@@ -91,7 +91,17 @@
     </repositories>
  
     <dependencies>
-    
+	
+		<dependency>
+			<groupId>sc.fiji</groupId>
+			<artifactId>AnalyzeSkeleton_</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>sc.fiji</groupId>
+			<artifactId>TrackMate_</artifactId>
+		</dependency>
+	    
         <!-- ImageJ dependencies -->
         <dependency>
             <groupId>net.imagej</groupId>
