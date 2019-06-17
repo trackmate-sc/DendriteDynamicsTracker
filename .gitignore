@@ -15,3 +15,6 @@ t/.mvn/wrapper/maven-wrapper.jar
 .classpath
 .project
 .settings/
+
+# Sample folder.
+samples/
