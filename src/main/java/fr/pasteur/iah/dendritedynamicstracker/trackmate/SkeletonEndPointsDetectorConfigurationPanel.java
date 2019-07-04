@@ -128,7 +128,6 @@ public class SkeletonEndPointsDetectorConfigurationPanel extends ConfigurationPa
 				lblChannel.setText( "" + sliderChannel.getValue() );
 			}
 		} );
-		add( sliderChannel );
 
 		btnPreview = new JButton( "Preview", ICON_PREVIEW );
 		btnPreview.setFont( SMALL_FONT );
