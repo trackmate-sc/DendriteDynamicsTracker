@@ -8,17 +8,16 @@ import org.scijava.ItemIO;
 import org.scijava.app.StatusService;
 import org.scijava.command.Command;
 import org.scijava.command.ContextCommand;
-import org.scijava.convert.ConvertService;
 import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
 import fiji.plugin.trackmate.Model;
-import fiji.plugin.trackmate.SelectionModel;
 import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.SpotCollection;
 import fiji.plugin.trackmate.TrackMate;
+import fiji.plugin.trackmate.TrackModel;
 import fiji.plugin.trackmate.detection.ManualDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeTargetAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer;
@@ -26,17 +25,20 @@ import fiji.plugin.trackmate.features.track.TrackIndexAnalyzer;
 import fiji.plugin.trackmate.gui.GuiUtils;
 import fiji.plugin.trackmate.gui.TrackMateGUIController;
 import fiji.plugin.trackmate.gui.descriptors.ConfigureViewsDescriptor;
+import fiji.plugin.trackmate.providers.EdgeAnalyzerProvider;
+import fiji.plugin.trackmate.providers.SpotAnalyzerProvider;
+import fiji.plugin.trackmate.providers.TrackAnalyzerProvider;
 import fiji.plugin.trackmate.tracking.LAPUtils;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
 import fiji.plugin.trackmate.tracking.sparselap.SimpleSparseLAPTrackerFactory;
 import fiji.plugin.trackmate.visualization.hyperstack.HyperStackDisplayer;
+import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
+import fr.pasteur.iah.dendritedynamicstracker.trackmate.tracking.SkeletonEndPointTrackerFactory;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.plugin.ChannelSplitter;
 import ij.plugin.Duplicator;
-import net.imagej.Dataset;
-import net.imagej.DatasetService;
 import sc.fiji.analyzeSkeleton.AnalyzeSkeleton_;
 import sc.fiji.analyzeSkeleton.Edge;
 import sc.fiji.analyzeSkeleton.Graph;
@@ -64,19 +66,13 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	final static double JUNCTION_POINTS_RADIUS = 1.;
 
 	@Parameter
-	private ConvertService convertService;
-
-	@Parameter
-	private DatasetService datasetService;
-
-	@Parameter
 	private LogService log;
 
 	@Parameter
 	private StatusService status;
 
 	@Parameter( type = ItemIO.INPUT )
-	private Dataset dataset = null;
+	private ImagePlus imp = null;
 
 	@Parameter( type = ItemIO.INPUT, label = "In what channel is the skeleton?" )
 	private int skeletonChannel = 2;
@@ -93,9 +89,6 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	@Parameter( type = ItemIO.INPUT, label = "Max frame-gap for end-points." )
 	private int endPointMaxFrameGap = 2;
 
-	@Parameter( type = ItemIO.INPUT, label = "Cycle-prunning method." )
-	private int cycePrunningMethod = 2;
-
 	@Parameter( label = "Cycle-prunning method.", choices = {
 			"No prunning",
 			"Shortest branch",
@@ -104,14 +97,9 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	} )
 	private String cyclePrunningMethodStr = PRUNNING_METHOD_STRINGS[ 3 ];
 
-	private ImagePlus imp = null;
-
 	@Override
 	public void run()
 	{
-		if ( imp == null )
-			setDataset( dataset );
-
 		final ImagePlus[] channels = ChannelSplitter.split( imp );
 		if ( channels.length < skeletonChannel )
 		{
@@ -149,8 +137,8 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		final double frameInterval = imp.getCalibration().frameInterval;
 
 		final int nFrames = skeleton.getNFrames();
-		final int firstZ = 0;
-		final int lastZ = skeleton.getNSlices() - 1;
+		final int firstZ = 1;
+		final int lastZ = skeleton.getNSlices();
 
 		final Duplicator duplicator = new Duplicator();
 		final AnalyzeSkeleton_ skelAnalyzer = new AnalyzeSkeleton_();
@@ -178,8 +166,8 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		status.showStatus( "Processing skeleton." );
 		for ( int frame = 0; frame < nFrames; frame++ )
 		{
-			final ImagePlus skeletonFrame = duplicator.run( skeleton, 0, 0, firstZ, lastZ, frame, frame );
-			final ImagePlus origImpFrame = duplicator.run( origImp, 0, 0, firstZ, lastZ, frame, frame );
+			final ImagePlus skeletonFrame = duplicator.run( skeleton, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
+			final ImagePlus origImpFrame = duplicator.run( origImp, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 
 			skelAnalyzer.setup( "", skeletonFrame );
 			final SkeletonResult result = skelAnalyzer.run( prunningMethod, pruneEnds, shortPath, origImpFrame, silent, verbose, null );
@@ -246,6 +234,8 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Track junctions.
 		 */
 
+		status.showStatus( "Tracking junctions." );
+
 		final Model junctionModel = new Model();
 		junctionModel.setPhysicalUnits( imp.getCalibration().getUnits(), imp.getCalibration().getTimeUnit() );
 		junctionModel.setSpots( junctionsSpots, false );
@@ -271,20 +261,80 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		junctionTrackmate.computeEdgeFeatures( false );
 		junctionTrackmate.computeTrackFeatures( false );
 
-		final HyperStackDisplayer displayer = new HyperStackDisplayer( junctionModel, new SelectionModel( junctionModel ), imp );
-		displayer.render();
+		/*
+		 * Assign to each end-point the track ID of the junction they match.
+		 */
 
-		final TrackMateGUIController controller = new TrackMateGUIController( junctionTrackmate );
-		controller.setGUIStateString( ConfigureViewsDescriptor.KEY );
-		controller.getGuimodel().addView( displayer );
-		GuiUtils.positionWindow( controller.getGUI(), imp.getWindow() );
+		status.showStatus( "Passing junction IDs to end-points." );
+
+		final TrackModel junctionTrackModel = junctionModel.getTrackModel();
+		for ( final Spot endPoint : endPointSpots.iterable( true ) )
+		{
+			final Spot junction = junctionMap.get( endPoint );
+			final Integer junctionTrackID = junctionTrackModel.trackIDOf( junction );
+			if ( null == junctionTrackID )
+				continue;
+
+			endPoint.putFeature( JunctionIDAnalyzerFactory.FEATURE, Double.valueOf( junctionTrackID.doubleValue() ) );
+			endPoint.setName( "->" + junctionTrackID );
+		}
 
 		/*
 		 * Track end-points.
 		 */
 
-		// TODO
+		status.showStatus( "Tracking end-points." );
 
+		final Model endPointModel = new Model();
+		endPointModel.setPhysicalUnits( imp.getCalibration().getUnits(), imp.getCalibration().getTimeUnit() );
+		endPointModel.setSpots( endPointSpots, false );
+
+		final Settings endPointSettings = new Settings();
+		endPointSettings.setFrom( imp );
+		endPointSettings.detectorFactory = new ManualDetectorFactory<>();
+		endPointSettings.trackerFactory = new SkeletonEndPointTrackerFactory();
+
+		endPointSettings.clearSpotAnalyzerFactories();
+		final SpotAnalyzerProvider spotAnalyzerProvider = new SpotAnalyzerProvider();
+		final List< String > spotAnalyzerKeys = spotAnalyzerProvider.getKeys();
+		for ( final String key : spotAnalyzerKeys )
+			endPointSettings.addSpotAnalyzerFactory( spotAnalyzerProvider.getFactory( key ) );
+
+		endPointSettings.clearEdgeAnalyzers();
+		final EdgeAnalyzerProvider edgeAnalyzerProvider = new EdgeAnalyzerProvider();
+		final List< String > edgeAnalyzerKeys = edgeAnalyzerProvider.getKeys();
+		for ( final String key : edgeAnalyzerKeys )
+			endPointSettings.addEdgeAnalyzer( edgeAnalyzerProvider.getFactory( key ) );
+
+		endPointSettings.clearTrackAnalyzers();
+		final TrackAnalyzerProvider trackAnalyzerProvider = new TrackAnalyzerProvider();
+		final List< String > trackAnalyzerKeys = trackAnalyzerProvider.getKeys();
+		for ( final String key : trackAnalyzerKeys )
+			endPointSettings.addTrackAnalyzer( trackAnalyzerProvider.getFactory( key ) );
+
+		endPointSettings.addSpotAnalyzerFactory( new JunctionIDAnalyzerFactory<>() );
+		endPointSettings.trackerSettings = new HashMap<>();
+		endPointSettings.trackerSettings.put( TrackerKeys.KEY_LINKING_MAX_DISTANCE, Double.valueOf( endPointMaxLinkingDistance ) );
+		endPointSettings.trackerSettings.put( TrackerKeys.KEY_GAP_CLOSING_MAX_DISTANCE, Double.valueOf( endPointMaxLinkingDistance ) );
+		endPointSettings.trackerSettings.put( TrackerKeys.KEY_GAP_CLOSING_MAX_FRAME_GAP, Integer.valueOf( endPointMaxFrameGap ) );
+
+		final TrackMate endPointTrackmate = new TrackMate( endPointModel, endPointSettings );
+		if ( !endPointTrackmate.checkInput() || !endPointTrackmate.process() )
+		{
+			IJ.error( "Problem with tracking.", endPointTrackmate.getErrorMessage() );
+			return;
+		}
+		endPointTrackmate.computeSpotFeatures( false );
+		endPointTrackmate.computeEdgeFeatures( false );
+		endPointTrackmate.computeTrackFeatures( false );
+
+		final TrackMateGUIController controller2 = new TrackMateGUIController( endPointTrackmate );
+		controller2.setGUIStateString( ConfigureViewsDescriptor.KEY );
+		GuiUtils.positionWindow( controller2.getGUI(), imp.getWindow() );
+
+		final HyperStackDisplayer displayer2 = new HyperStackDisplayer( endPointModel, controller2.getSelectionModel(), imp );
+		controller2.getGuimodel().addView( displayer2 );
+		displayer2.render();
 	}
 
 	private static final Spot vertexToSpot( final Vertex vertex, final double[] calibration, final int[] start )
@@ -321,16 +371,4 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 
 		return 3;
 	}
-
-	public void setDataset( final Dataset dataset )
-	{
-		this.dataset = dataset;
-		setImagePlus();
-	}
-
-	private void setImagePlus()
-	{
-		imp = convertService.convert( dataset, ImagePlus.class );
-	}
-
 }
