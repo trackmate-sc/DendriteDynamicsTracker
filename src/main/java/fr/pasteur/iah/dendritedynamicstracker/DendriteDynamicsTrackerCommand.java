@@ -3,7 +3,9 @@ package fr.pasteur.iah.dendritedynamicstracker;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.jgrapht.graph.DefaultWeightedEdge;
 import org.scijava.ItemIO;
 import org.scijava.app.StatusService;
 import org.scijava.command.Command;
@@ -12,6 +14,7 @@ import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
+import fiji.plugin.trackmate.Logger;
 import fiji.plugin.trackmate.Model;
 import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.Spot;
@@ -84,10 +87,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	private double junctionMaxLinkingDistance = 5.;
 
 	@Parameter( type = ItemIO.INPUT, label = "Max linking distance for end-points." )
-	private double endPointMaxLinkingDistance = 15.;
-
-	@Parameter( type = ItemIO.INPUT, label = "Max frame-gap for end-points." )
-	private int endPointMaxFrameGap = 2;
+	private double endPointMaxLinkingDistance = 5.;
 
 	@Parameter( label = "Cycle-prunning method.", choices = {
 			"No prunning",
@@ -315,8 +315,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		endPointSettings.addSpotAnalyzerFactory( new JunctionIDAnalyzerFactory<>() );
 		endPointSettings.trackerSettings = new HashMap<>();
 		endPointSettings.trackerSettings.put( TrackerKeys.KEY_LINKING_MAX_DISTANCE, Double.valueOf( endPointMaxLinkingDistance ) );
-		endPointSettings.trackerSettings.put( TrackerKeys.KEY_GAP_CLOSING_MAX_DISTANCE, Double.valueOf( endPointMaxLinkingDistance ) );
-		endPointSettings.trackerSettings.put( TrackerKeys.KEY_GAP_CLOSING_MAX_FRAME_GAP, Integer.valueOf( endPointMaxFrameGap ) );
+		endPointSettings.trackerSettings.put( TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.valueOf( TrackerKeys.DEFAULT_ALTERNATIVE_LINKING_COST_FACTOR ) );
 
 		final TrackMate endPointTrackmate = new TrackMate( endPointModel, endPointSettings );
 		if ( !endPointTrackmate.checkInput() || !endPointTrackmate.process() )
@@ -324,9 +323,19 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			IJ.error( "Problem with tracking.", endPointTrackmate.getErrorMessage() );
 			return;
 		}
+
+		/*
+		 * Merge with junction results.
+		 */
+
+//		merge( endPointModel, junctionModel );
 		endPointTrackmate.computeSpotFeatures( false );
 		endPointTrackmate.computeEdgeFeatures( false );
 		endPointTrackmate.computeTrackFeatures( false );
+
+		/*
+		 * Display results.
+		 */
 
 		final TrackMateGUIController controller2 = new TrackMateGUIController( endPointTrackmate );
 		controller2.setGUIStateString( ConfigureViewsDescriptor.KEY );
@@ -370,5 +379,78 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 				return i;
 
 		return 3;
+	}
+
+	private static void merge( final Model model, final Model modelToMerge )
+	{
+		final int nNewTracks = modelToMerge.getTrackModel().nTracks( true );
+		final Logger logger = model.getLogger();
+
+		int progress = 0;
+		model.beginUpdate();
+
+		int nNewSpots = 0;
+		try
+		{
+			for ( final int id : modelToMerge.getTrackModel().trackIDs( true ) )
+			{
+
+				/*
+				 * Add new spots built on the ones in the source.
+				 */
+
+				final Set< Spot > spots = modelToMerge.getTrackModel().trackSpots( id );
+				final HashMap< Spot, Spot > mapOldToNew = new HashMap<>( spots.size() );
+
+				Spot newSpot = null; // we keep a reference to the new spot,
+										// needed below
+				for ( final Spot oldSpot : spots )
+				{
+					// An awkward way to avoid spot ID conflicts after loading
+					// two files
+					newSpot = new Spot( oldSpot );
+					for ( final String feature : oldSpot.getFeatures().keySet() )
+						newSpot.putFeature( feature, oldSpot.getFeature( feature ) );
+
+					mapOldToNew.put( oldSpot, newSpot );
+					model.addSpotTo( newSpot, oldSpot.getFeature( Spot.FRAME ).intValue() );
+					nNewSpots++;
+				}
+
+				/*
+				 * Link new spots from info in the file.
+				 */
+
+				final Set< DefaultWeightedEdge > edges = modelToMerge.getTrackModel().trackEdges( id );
+				for ( final DefaultWeightedEdge edge : edges )
+				{
+					final Spot oldSource = modelToMerge.getTrackModel().getEdgeSource( edge );
+					final Spot oldTarget = modelToMerge.getTrackModel().getEdgeTarget( edge );
+					final Spot newSource = mapOldToNew.get( oldSource );
+					final Spot newTarget = mapOldToNew.get( oldTarget );
+					final double weight = modelToMerge.getTrackModel().getEdgeWeight( edge );
+
+					model.addEdge( newSource, newTarget, weight );
+				}
+
+				/*
+				 * Put back track names
+				 */
+
+				final String trackName = modelToMerge.getTrackModel().name( id );
+				final int newId = model.getTrackModel().trackIDOf( newSpot );
+				model.getTrackModel().setName( newId, trackName );
+
+				progress++;
+				logger.setProgress( ( double ) progress / nNewTracks );
+			}
+
+		}
+		finally
+		{
+			model.endUpdate();
+			logger.setProgress( 0 );
+			logger.log( "Imported " + nNewTracks + " tracks made of " + nNewSpots + " spots.\n" );
+		}
 	}
 }
