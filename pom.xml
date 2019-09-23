@@ -127,5 +127,11 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+        	<groupId>io.scif</groupId>
+        	<artifactId>pom-scifio</artifactId>
+        	<version>13.0.0</version>
+        	<type>pom</type>
+        </dependency>
     </dependencies>
 </project>
