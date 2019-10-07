@@ -20,7 +20,15 @@ public class SkeletonEndPointTracker extends SparseLAPFrameToFrameTracker
 	@Override
 	protected CostFunction< Spot, Spot > getCostFunction( final Map< String, Double > featurePenalties )
 	{
-		return new MyCostFunction( ( ( Number ) settings.get( TrackerKeys.KEY_LINKING_MAX_DISTANCE ) ).doubleValue() );
+		return new MyCostFunction(
+				( ( Number ) settings.get( TrackerKeys.KEY_LINKING_MAX_DISTANCE ) ).doubleValue(),
+				( ( Number ) settings.get( SkeletonEndPointTrackerFactory.KEY_MATCHED_COST_FACTOR ) ).doubleValue() );
+	}
+
+	@Override
+	protected boolean checkSettingsValidity( final Map< String, Object > settings, final StringBuilder str )
+	{
+		return true;
 	}
 
 	/**
@@ -30,13 +38,14 @@ public class SkeletonEndPointTracker extends SparseLAPFrameToFrameTracker
 	private static final class MyCostFunction implements CostFunction< Spot, Spot >
 	{
 
-		private static final double FUDGE_FACTOR = 10.;
-
 		private final double maxLinkingDistance;
 
-		public MyCostFunction( final double maxLinkingDistance )
+		private final double matchedCostFactor;
+
+		public MyCostFunction( final double maxLinkingDistance, final double matchedCostFactor )
 		{
 			this.maxLinkingDistance = maxLinkingDistance;
+			this.matchedCostFactor = matchedCostFactor;
 		}
 
 		@Override
@@ -51,7 +60,7 @@ public class SkeletonEndPointTracker extends SparseLAPFrameToFrameTracker
 			if ( null == sourceID || null == targetID || !sourceID.equals( targetID ) )
 				return sqDist;
 
-			return sqDist / FUDGE_FACTOR;
+			return sqDist / matchedCostFactor;
 		}
 	}
 }

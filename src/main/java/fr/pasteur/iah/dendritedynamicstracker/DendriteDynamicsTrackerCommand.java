@@ -316,6 +316,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		endPointSettings.trackerSettings = new HashMap<>();
 		endPointSettings.trackerSettings.put( TrackerKeys.KEY_LINKING_MAX_DISTANCE, Double.valueOf( endPointMaxLinkingDistance ) );
 		endPointSettings.trackerSettings.put( TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.valueOf( TrackerKeys.DEFAULT_ALTERNATIVE_LINKING_COST_FACTOR ) );
+		endPointSettings.trackerSettings.put( SkeletonEndPointTrackerFactory.KEY_MATCHED_COST_FACTOR, SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR );
 
 		final TrackMate endPointTrackmate = new TrackMate( endPointModel, endPointSettings );
 		if ( !endPointTrackmate.checkInput() || !endPointTrackmate.process() )
