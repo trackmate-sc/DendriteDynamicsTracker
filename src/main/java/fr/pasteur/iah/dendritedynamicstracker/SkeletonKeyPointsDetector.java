@@ -3,6 +3,7 @@ package fr.pasteur.iah.dendritedynamicstracker;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.scijava.ItemIO;
 import org.scijava.app.StatusService;
@@ -18,6 +19,7 @@ import ij.gui.Roi;
 import ij.plugin.ChannelSplitter;
 import ij.plugin.Duplicator;
 import net.imagej.ops.special.function.AbstractUnaryFunctionOp;
+import net.imglib2.multithreading.SimpleMultiThreading;
 import sc.fiji.analyzeSkeleton.AnalyzeSkeleton_;
 import sc.fiji.analyzeSkeleton.Edge;
 import sc.fiji.analyzeSkeleton.Graph;
@@ -25,6 +27,7 @@ import sc.fiji.analyzeSkeleton.Point;
 import sc.fiji.analyzeSkeleton.SkeletonResult;
 import sc.fiji.analyzeSkeleton.Vertex;
 
+@SuppressWarnings( "deprecation" )
 @Plugin( type = SkeletonKeyPointsDetector.class )
 public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlus, DetectionResults >
 {
@@ -90,8 +93,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		final int firstZ = 1;
 		final int lastZ = skeleton.getNSlices();
 
-		final Duplicator duplicator = new Duplicator();
-		final AnalyzeSkeleton_ skelAnalyzer = new AnalyzeSkeleton_();
 
 		final boolean pruneEnds = false; // Don't prune branch ends.
 		final boolean shortPath = false; // Don't compute shortest path.
@@ -100,85 +101,109 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 
 		final SpotCollection junctionsSpots = new SpotCollection();
 		final SpotCollection endPointSpots = new SpotCollection();
+
 		/**
 		 * Maps a graph vertex to the spot created from it.
 		 */
 		final Map< Vertex, Spot > vertexMap = new HashMap<>();
+
 		/**
 		 * Maps a Spot to its graph.
 		 */
 		final Map< Spot, Graph > graphMap = new HashMap<>();
+
 		/**
 		 * Maps a skeleton end-point to its junction spot.
 		 */
 		final Map< Spot, Spot > junctionMap = new HashMap<>();
 
 		status.showStatus( "Processing skeleton." );
-		for ( int frame = 0; frame < nFrames; frame++ )
+
+		final AtomicInteger progress = new AtomicInteger( 0 );
+		final AtomicInteger ai = new AtomicInteger( 0 );
+		final Thread[] threads = SimpleMultiThreading.newThreads( Runtime.getRuntime().availableProcessors() / 2 );
+
+		for ( int ithread = 0; ithread < threads.length; ithread++ )
 		{
-			final ImagePlus skeletonFrame = duplicator.run( skeleton, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
-			final ImagePlus origImpFrame = duplicator.run( origImp, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 
-			skelAnalyzer.setup( "", skeletonFrame );
-			final SkeletonResult result = skelAnalyzer.run( prunningMethod, pruneEnds, shortPath, origImpFrame, silent, verbose, null );
+			final Duplicator duplicator = new Duplicator();
+			final AnalyzeSkeleton_ skelAnalyzer = new AnalyzeSkeleton_();
 
-			final Graph[] graphs = result.getGraph();
-			for ( final Graph graph : graphs )
+			threads[ ithread ] = new Thread( "Detection thread " + ( 1 + ithread ) + "/" + threads.length )
 			{
-				final List< Vertex > vertices = graph.getVertices();
 
-				/*
-				 * Find junctions.
-				 */
-
-				for ( final Vertex vertex : vertices )
+				@Override
+				public void run()
 				{
-					if ( vertex.getBranches().size() == 1 )
-						continue;
+					for ( int frame = ai.getAndIncrement(); frame < nFrames; frame = ai.getAndIncrement() )
+					{
+						final ImagePlus skeletonFrame = duplicator.run( skeleton, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
+						final ImagePlus origImpFrame = duplicator.run( origImp, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 
-					final Spot spot = vertexToSpot( vertex, calibration, start );
-					spot.putFeature( Spot.POSITION_T, frame * frameInterval );
-					vertexMap.put( vertex, spot );
-					graphMap.put( spot, graph );
+						skelAnalyzer.setup( "", skeletonFrame );
+						final SkeletonResult result = skelAnalyzer.run( prunningMethod, pruneEnds, shortPath, origImpFrame, silent, verbose, null );
 
-					junctionsSpots.add( spot, Integer.valueOf( frame ) );
+						final Graph[] graphs = result.getGraph();
+						for ( final Graph graph : graphs )
+						{
+							final List< Vertex > vertices = graph.getVertices();
+
+							/*
+							 * Find junctions.
+							 */
+
+							for ( final Vertex vertex : vertices )
+							{
+								if ( vertex.getBranches().size() == 1 )
+									continue;
+
+								final Spot spot = vertexToSpot( vertex, calibration, start );
+								spot.putFeature( Spot.POSITION_T, frame * frameInterval );
+								vertexMap.put( vertex, spot );
+								graphMap.put( spot, graph );
+
+								junctionsSpots.add( spot, Integer.valueOf( frame ) );
+							}
+
+							/*
+							 * Find end points and link them to their junction.
+							 */
+
+							for ( final Vertex vertex : vertices )
+							{
+								if ( vertex.getBranches().size() != 1 )
+									continue;
+
+								final Spot spot = vertexToSpot( vertex, calibration, start );
+								spot.putFeature( Spot.POSITION_T, frame * frameInterval );
+								vertexMap.put( vertex, spot );
+								graphMap.put( spot, graph );
+
+								endPointSpots.add( spot, Integer.valueOf( frame ) );
+
+								// Find matching junction.
+								final Edge predecessor = vertex.getBranches().get( 0 );
+								if ( null == predecessor )
+									continue;
+
+								final Vertex oppositeVertex = predecessor.getOppositeVertex( vertex );
+								final Spot junctionSpot = vertexMap.get( oppositeVertex );
+								if ( null != junctionSpot )
+									junctionMap.put( spot, junctionSpot );
+
+							}
+
+						}
+
+						junctionsSpots.setVisible( true );
+						endPointSpots.setVisible( true );
+
+						status.showProgress( progress.incrementAndGet(), nFrames );
+					}
 				}
-
-				/*
-				 * Find end points and link them to their junction.
-				 */
-
-				for ( final Vertex vertex : vertices )
-				{
-					if ( vertex.getBranches().size() != 1 )
-						continue;
-
-					final Spot spot = vertexToSpot( vertex, calibration, start );
-					spot.putFeature( Spot.POSITION_T, frame * frameInterval );
-					vertexMap.put( vertex, spot );
-					graphMap.put( spot, graph );
-
-					endPointSpots.add( spot, Integer.valueOf( frame ) );
-
-					// Find matching junction.
-					final Edge predecessor = vertex.getBranches().get( 0 );
-					if ( null == predecessor )
-						continue;
-
-					final Vertex oppositeVertex = predecessor.getOppositeVertex( vertex );
-					final Spot junctionSpot = vertexMap.get( oppositeVertex );
-					if ( null != junctionSpot )
-						junctionMap.put( spot, junctionSpot );
-
-				}
-
-			}
-
-			junctionsSpots.setVisible( true );
-			endPointSpots.setVisible( true );
-
-			status.showProgress( frame, nFrames );
+			};
 		}
+		SimpleMultiThreading.startAndJoin( threads );
 
 		return new DetectionResults( junctionsSpots, endPointSpots, junctionMap );
 
