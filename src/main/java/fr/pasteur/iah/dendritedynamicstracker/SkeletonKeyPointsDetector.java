@@ -1,5 +1,7 @@
 package fr.pasteur.iah.dendritedynamicstracker;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import ij.gui.Roi;
 import ij.plugin.ChannelSplitter;
 import ij.plugin.Duplicator;
 import net.imagej.ops.special.function.AbstractUnaryFunctionOp;
+import net.imglib2.algorithm.MultiThreaded;
 import net.imglib2.multithreading.SimpleMultiThreading;
 import sc.fiji.analyzeSkeleton.AnalyzeSkeleton_;
 import sc.fiji.analyzeSkeleton.Edge;
@@ -29,16 +32,16 @@ import sc.fiji.analyzeSkeleton.Vertex;
 
 @SuppressWarnings( "deprecation" )
 @Plugin( type = SkeletonKeyPointsDetector.class )
-public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlus, DetectionResults >
+public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlus, DetectionResults > implements MultiThreaded
 {
 
-	final static double END_POINTS_QUALITY_VALUE = 1.;
+	private final static double END_POINTS_QUALITY_VALUE = 1.;
 
-	final static double JUNCTION_POINTS_QUALITY_VALUE = 2.;
+	private final static double JUNCTION_POINTS_QUALITY_VALUE = 2.;
 
-	final static double END_POINTS_RADIUS = 0.5;
+	private final static double END_POINTS_RADIUS = 0.5;
 
-	final static double JUNCTION_POINTS_RADIUS = 1.;
+	private final static double JUNCTION_POINTS_RADIUS = 1.;
 
 	@Parameter
 	private LogService log;
@@ -54,6 +57,13 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 
 	@Parameter( type = ItemIO.INPUT, label = "Prunning method" )
 	private int prunningMethod = 3;
+
+	private int numThreads;
+
+	public SkeletonKeyPointsDetector()
+	{
+		setNumThreads();
+	}
 
 	@Override
 	public DetectionResults calculate( final ImagePlus imp )
@@ -93,41 +103,40 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		final int firstZ = 1;
 		final int lastZ = skeleton.getNSlices();
 
-
 		final boolean pruneEnds = false; // Don't prune branch ends.
 		final boolean shortPath = false; // Don't compute shortest path.
 		final boolean silent = true;
 		final boolean verbose = false;
 
-		final SpotCollection junctionsSpots = new SpotCollection();
-		final SpotCollection endPointSpots = new SpotCollection();
-
-		/**
-		 * Maps a graph vertex to the spot created from it.
-		 */
-		final Map< Vertex, Spot > vertexMap = new HashMap<>();
-
-		/**
-		 * Maps a Spot to its graph.
-		 */
-		final Map< Spot, Graph > graphMap = new HashMap<>();
-
-		/**
-		 * Maps a skeleton end-point to its junction spot.
-		 */
-		final Map< Spot, Spot > junctionMap = new HashMap<>();
-
 		status.showStatus( "Processing skeleton." );
 
 		final AtomicInteger progress = new AtomicInteger( 0 );
 		final AtomicInteger ai = new AtomicInteger( 0 );
-		final Thread[] threads = SimpleMultiThreading.newThreads( Runtime.getRuntime().availableProcessors() / 2 );
+		final Thread[] threads = SimpleMultiThreading.newThreads( numThreads );
+
+		// Maps a skeleton end-point to its junction spot - one per thread.
+		final List< Map< Spot, Spot > > junctionMapList = new ArrayList<>( threads.length );
+
+		// Map of frame vs junctions found in this frame - one per thread.
+		final List< Map< Integer, Collection< Spot > > > junctionsList = new ArrayList<>( threads.length );
+
+		// Map of frame vs end-points found in this frame - one per thread.
+		final List< Map< Integer, Collection< Spot > > > endPointsList = new ArrayList<>( threads.length );
 
 		for ( int ithread = 0; ithread < threads.length; ithread++ )
 		{
 
 			final Duplicator duplicator = new Duplicator();
 			final AnalyzeSkeleton_ skelAnalyzer = new AnalyzeSkeleton_();
+
+			final Map< Spot, Spot > junctionMapLocal = new HashMap<>();
+			junctionMapList.add( junctionMapLocal );
+
+			final Map< Integer, Collection< Spot > > junctionsLocal = new HashMap<>();
+			junctionsList.add( junctionsLocal );
+
+			final Map< Integer, Collection< Spot > > endPointsLocal = new HashMap<>();
+			endPointsList.add( endPointsLocal );
 
 			threads[ ithread ] = new Thread( "Detection thread " + ( 1 + ithread ) + "/" + threads.length )
 			{
@@ -137,6 +146,19 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 				{
 					for ( int frame = ai.getAndIncrement(); frame < nFrames; frame = ai.getAndIncrement() )
 					{
+
+						// Collection of junctions found in this frame.
+						final List< Spot > junctions = new ArrayList<>();
+
+						// Collection of end-points found in this frame.
+						final List< Spot > endPoints = new ArrayList<>();
+
+						// Maps a graph vertex to the spot created from it.
+						final Map< Vertex, Spot > vertexMap = new HashMap<>();
+
+						// Maps a Spot to its graph.
+						final Map< Spot, Graph > graphMap = new HashMap<>();
+
 						final ImagePlus skeletonFrame = duplicator.run( skeleton, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 						final ImagePlus origImpFrame = duplicator.run( origImp, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 
@@ -162,7 +184,7 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 								vertexMap.put( vertex, spot );
 								graphMap.put( spot, graph );
 
-								junctionsSpots.add( spot, Integer.valueOf( frame ) );
+								junctions.add( spot );
 							}
 
 							/*
@@ -179,7 +201,7 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 								vertexMap.put( vertex, spot );
 								graphMap.put( spot, graph );
 
-								endPointSpots.add( spot, Integer.valueOf( frame ) );
+								endPoints.add( spot );
 
 								// Find matching junction.
 								final Edge predecessor = vertex.getBranches().get( 0 );
@@ -189,14 +211,14 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 								final Vertex oppositeVertex = predecessor.getOppositeVertex( vertex );
 								final Spot junctionSpot = vertexMap.get( oppositeVertex );
 								if ( null != junctionSpot )
-									junctionMap.put( spot, junctionSpot );
+									junctionMapLocal.put( spot, junctionSpot );
 
 							}
 
 						}
 
-						junctionsSpots.setVisible( true );
-						endPointSpots.setVisible( true );
+						junctionsLocal.put( Integer.valueOf( frame ), junctions );
+						endPointsLocal.put( Integer.valueOf( frame ), endPoints );
 
 						status.showProgress( progress.incrementAndGet(), nFrames );
 					}
@@ -204,6 +226,27 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 			};
 		}
 		SimpleMultiThreading.startAndJoin( threads );
+
+		/*
+		 * We now collect what every single thread did on its side.
+		 */
+
+		// Maps a skeleton end-point to its junction spot.
+		final Map< Spot, Spot > junctionMap = new HashMap<>();
+		for ( final Map< Spot, Spot > map : junctionMapList )
+			junctionMap.putAll( map );
+
+		final SpotCollection junctionsSpots = new SpotCollection();
+		for ( final Map< Integer, Collection< Spot > > map : junctionsList )
+			for ( final Integer frame : map.keySet() )
+				junctionsSpots.put( frame, map.get( frame ) );
+		junctionsSpots.setVisible( true );
+
+		final SpotCollection endPointSpots = new SpotCollection();
+		for ( final Map< Integer, Collection< Spot > > map : endPointsList )
+			for ( final Integer frame : map.keySet() )
+				endPointSpots.put( frame, map.get( frame ) );
+		endPointSpots.setVisible( true );
 
 		return new DetectionResults( junctionsSpots, endPointSpots, junctionMap );
 
@@ -253,6 +296,24 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 			this.endPointSpots = endPointSpots;
 			this.junctionMap = junctionMap;
 		}
+	}
+
+	@Override
+	public void setNumThreads()
+	{
+		this.numThreads = Runtime.getRuntime().availableProcessors();
+	}
+
+	@Override
+	public void setNumThreads( final int numThreads )
+	{
+		this.numThreads = numThreads;
+	}
+
+	@Override
+	public int getNumThreads()
+	{
+		return numThreads;
 	}
 
 }
