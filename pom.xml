@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.scijava</groupId>
         <artifactId>pom-scijava</artifactId>
-        <version>26.0.0</version>
+        <version>27.0.1</version>
         <relativePath />
     </parent>
  
@@ -102,7 +102,7 @@
 			<artifactId>TrackMate_</artifactId>
 			<version>4.0.2-SNAPSHOT</version>
 		</dependency>
-	    
+		
         <!-- ImageJ dependencies -->
         <dependency>
             <groupId>net.imagej</groupId>
@@ -127,11 +127,13 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        
         <dependency>
         	<groupId>io.scif</groupId>
         	<artifactId>pom-scifio</artifactId>
         	<version>13.0.0</version>
         	<type>pom</type>
         </dependency>
+
     </dependencies>
 </project>
