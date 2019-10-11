@@ -52,8 +52,6 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			"Lowest intensity branch"
 	};
 
-	private static final boolean MERGE_MODEL_WITH_JUNCTIONS = false;
-
 	@Parameter
 	private LogService log;
 
@@ -89,6 +87,9 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	@Parameter( type = ItemIO.INPUT, label = "Matched cost-factor for end-points." )
 	private double matchedCostFactor = SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR.doubleValue();
 
+	@Parameter( type = ItemIO.INPUT, label = "Merge junction tracks with end-results?" )
+	private boolean mergeJunctionTracks = false;
+
 	@Override
 	public void run()
 	{
@@ -110,7 +111,11 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Track junctions.
 		 */
 
-		final Model junctionModel = trackJunctions( detectionResults );
+		status.showStatus( "Tracking junctions." );
+		final Model junctionModel = trackJunctions(
+				detectionResults,
+				imp,
+				junctionMaxLinkingDistance );
 		if ( null == junctionModel )
 			return;
 
@@ -118,7 +123,14 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Track end-points.
 		 */
 
-		final TrackMate endPointTrackmate = trackEndPoints( detectionResults, junctionModel );
+		status.showStatus( "Tracking end-points." );
+		final TrackMate endPointTrackmate = trackEndPoints(
+				detectionResults,
+				junctionModel,
+				imp,
+				endPointMaxLinkingDistance,
+				matchedCostFactor,
+				mergeJunctionTracks );
 		if ( null == endPointTrackmate )
 			return;
 
@@ -135,10 +147,14 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		displayer2.render();
 	}
 
-	public TrackMate trackEndPoints( final DetectionResults detectionResults, final Model junctionModel )
+	public static TrackMate trackEndPoints(
+			final DetectionResults detectionResults,
+			final Model junctionModel,
+			final ImagePlus imp,
+			final double endPointMaxLinkingDistance,
+			final double matchedCostFactor,
+			final boolean mergeJunctionTracks )
 	{
-
-		status.showStatus( "Tracking end-points." );
 
 		final Model endPointModel = new Model();
 		endPointModel.setPhysicalUnits( imp.getCalibration().getUnits(), imp.getCalibration().getTimeUnit() );
@@ -184,7 +200,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Merge with junction results.
 		 */
 
-		if ( MERGE_MODEL_WITH_JUNCTIONS )
+		if ( mergeJunctionTracks )
 			merge( endPointModel, junctionModel );
 
 		endPointTrackmate.computeSpotFeatures( false );
@@ -194,10 +210,11 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		return endPointTrackmate;
 	}
 
-	public Model trackJunctions( final DetectionResults detectionResults )
+	public static Model trackJunctions(
+			final DetectionResults detectionResults,
+			final ImagePlus imp,
+			final double junctionMaxLinkingDistance )
 	{
-
-		status.showStatus( "Tracking junctions." );
 
 		final Model junctionModel = new Model();
 		junctionModel.setPhysicalUnits( imp.getCalibration().getUnits(), imp.getCalibration().getTimeUnit() );
@@ -228,8 +245,6 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Assign to each end-point the track ID of the junction they match.
 		 */
 
-		status.showStatus( "Passing junction IDs to end-points." );
-
 		final TrackModel junctionTrackModel = junctionModel.getTrackModel();
 		for ( final Spot endPoint : detectionResults.endPointSpots.iterable( true ) )
 		{
@@ -248,7 +263,6 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		return junctionModel;
 	}
 
-
 	private static final int getPrunningMethod( final String cyclePrunningMethodStr )
 	{
 		for ( int i = 0; i < PRUNNING_METHOD_STRINGS.length; i++ )
@@ -257,8 +271,6 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 
 		return 3;
 	}
-
-
 
 	private static void merge( final Model model, final Model modelToMerge )
 	{
@@ -292,6 +304,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 						newSpot.putFeature( feature, oldSpot.getFeature( feature ) );
 
 					mapOldToNew.put( oldSpot, newSpot );
+					newSpot.setName( "J" + id );
 					model.addSpotTo( newSpot, oldSpot.getFeature( Spot.FRAME ).intValue() );
 					nNewSpots++;
 				}
