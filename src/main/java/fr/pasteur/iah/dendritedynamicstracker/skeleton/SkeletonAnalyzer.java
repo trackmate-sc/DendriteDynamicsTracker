@@ -216,15 +216,15 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 
 			private int nPos = 0;
 
-			private Localizable root;
+			private Localizable pixel;
 
-			private Junction( final int id, final Localizable root )
+			private Junction( final int id, final Localizable pixel )
 			{
 				this.id = id;
-				this.sumPos = new double[ root.numDimensions() ];
-				final Point r = Point.wrap( new long[ root.numDimensions() ] );
-				r.setPosition( root );
-				this.root = r;
+				this.sumPos = new double[ pixel.numDimensions() ];
+				final Point r = Point.wrap( new long[ pixel.numDimensions() ] );
+				r.setPosition( pixel );
+				this.pixel = r;
 			}
 
 			private void increment( final Localizable pos )
@@ -234,9 +234,13 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 					sumPos[ d ] += pos.getDoublePosition( d );
 			}
 
-			public Localizable getRoot()
+			/**
+			 * Returns the position of one pixel of the junction. The position
+			 * of this pixel in the junction is random.
+			 */
+			public Localizable getPixel()
 			{
-				return root;
+				return pixel;
 			}
 
 			public int getSize()
