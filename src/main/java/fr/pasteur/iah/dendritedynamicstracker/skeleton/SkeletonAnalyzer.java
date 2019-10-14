@@ -1,4 +1,4 @@
-package fr.pasteur.iah.dendritedynamicstracker;
+package fr.pasteur.iah.dendritedynamicstracker.skeleton;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -7,8 +7,9 @@ import java.util.List;
 
 import org.scijava.plugin.Plugin;
 
-import fr.pasteur.iah.dendritedynamicstracker.SkeletonAnalyzer.SkeletonAnalysis;
-import fr.pasteur.iah.dendritedynamicstracker.SkeletonAnalyzer.SkeletonAnalysis.Junction;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer.SkeletonAnalysis;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer.SkeletonAnalysis.Junction;
+
 import net.imagej.ops.special.function.AbstractBinaryFunctionOp;
 import net.imglib2.Cursor;
 import net.imglib2.Interval;

@@ -2,11 +2,13 @@ package fr.pasteur.iah.dendritedynamicstracker;
 
 import java.io.IOException;
 
-import fr.pasteur.iah.dendritedynamicstracker.SkeletonAnalyzer.SkeletonAnalysis;
-import fr.pasteur.iah.dendritedynamicstracker.SkeletonAnalyzer.SkeletonAnalysis.Junction;
 import net.imagej.Dataset;
 import net.imagej.ImageJ;
 import net.imglib2.RandomAccessibleInterval;
+
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer.SkeletonAnalysis;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer.SkeletonAnalysis.Junction;
 
 public class TestSkeletonAnalyzer
 {
