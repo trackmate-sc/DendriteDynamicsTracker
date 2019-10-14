@@ -27,6 +27,7 @@ import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
+import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
 @Plugin( type = SkeletonAnalyzer.class )
@@ -37,9 +38,9 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 
 	private static final int SLAB_TAG = 1;
 
-	private static final int JUNCTION_TAG_TEMP = 3;
+	private static final int JUNCTION_TAG_TEMP = 255;
 
-	private static final int JUNCTION_TAG = 4;
+	private static final int JUNCTION_TAG = 3;
 
 	@Override
 	public SkeletonAnalysis calculate( final RandomAccessible< T > skeleton, final Interval interval )
@@ -48,6 +49,22 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 		/*
 		 * Generate skeleton-tagged image.
 		 */
+		Img< UnsignedByteType > taggedSkeleton = createTaggedSkeleton( skeleton, interval );
+
+		/*
+		 * Group junction pixels into junctions.
+		 */
+		final List< Junction > junctions = groupJunctions( taggedSkeleton );
+
+		/*
+		 * Return
+		 */
+
+		return new SkeletonAnalysis( taggedSkeleton, junctions );
+	}
+
+	private Img< UnsignedByteType > createTaggedSkeleton( RandomAccessible< T > skeleton, Interval interval )
+	{
 
 		final Img< UnsignedByteType > taggedSkeleton = Util.getArrayOrCellImgFactory( interval, new UnsignedByteType() ).create( interval );
 		final RandomAccess< UnsignedByteType > raTag = taggedSkeleton.randomAccess( interval );
@@ -81,26 +98,37 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 		}
 
 		/*
-		 * Group junction pixels into junctions.
-		 */
-		final List< Junction > junctions = groupJunctions( taggedSkeleton );
-
-		/*
-		 * Return
+		 * Remove end-points on the border of the image.
 		 */
 
-		return new SkeletonAnalysis( taggedSkeleton, junctions );
+		removeBorderEndPoints( taggedSkeleton );
+
+		return taggedSkeleton;
+	}
+
+	private void removeBorderEndPoints( Img< UnsignedByteType > taggedSkeleton )
+	{
+		for ( int dFixed = 0; dFixed < taggedSkeleton.numDimensions(); dFixed++ )
+		{
+			IntervalView< UnsignedByteType > hyperSlice1 = Views.hyperSlice( taggedSkeleton, dFixed, taggedSkeleton.min( dFixed ) );
+			for ( UnsignedByteType p : hyperSlice1 )
+				if ( p.get() == END_POINT_TAG )
+					p.set( SLAB_TAG );
+
+			IntervalView< UnsignedByteType > hyperSlice2 = Views.hyperSlice( taggedSkeleton, dFixed, taggedSkeleton.max( dFixed ) );
+			for ( UnsignedByteType p : hyperSlice2 )
+				if ( p.get() == END_POINT_TAG )
+					p.set( SLAB_TAG );
+		}
 	}
 
 	private List< Junction > groupJunctions( final Img< UnsignedByteType > taggedSkeleton )
 	{
 		final NeighborhoodsAccessible< UnsignedByteType > neighborhoods = new RectangleShape( 1, true ).neighborhoodsRandomAccessible( taggedSkeleton );
 		final RandomAccess< Neighborhood< UnsignedByteType > > raNeighborhood = neighborhoods.randomAccess( Intervals.expand( taggedSkeleton, 1 ) );
-		final RandomAccess< UnsignedByteType > ra = taggedSkeleton.randomAccess( taggedSkeleton );
-
 		final Cursor< UnsignedByteType > cursor = taggedSkeleton.localizingCursor();
 
-		int junctionID = JUNCTION_TAG + 1;
+		int junctionID = 0;
 		final List< Junction > junctions = new ArrayList<>();
 		while ( cursor.hasNext() )
 		{
@@ -108,6 +136,8 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 			if ( cursor.get().get() != JUNCTION_TAG_TEMP )
 				continue;
 
+			// Mark as visited.
+			cursor.get().set( JUNCTION_TAG );
 			final Point start = Point.wrap( new long[ taggedSkeleton.numDimensions() ] );
 			start.setPosition( cursor );
 
@@ -123,10 +153,6 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 				final Point point = queue.pop();
 				junction.increment( point );
 
-				// Mark as visited.
-				ra.setPosition( point );
-				ra.get().set( JUNCTION_TAG );
-
 				// Explore neighborhood.
 				raNeighborhood.setPosition( point );
 				final Neighborhood< UnsignedByteType > neighborhood = raNeighborhood.get();
@@ -136,6 +162,7 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 					lc.fwd();
 					if ( lc.get().get() == JUNCTION_TAG_TEMP )
 					{
+						lc.get().set( JUNCTION_TAG );
 						final Point j = Point.wrap( new long[ taggedSkeleton.numDimensions() ] );
 						j.setPosition( lc );
 						queue.add( j );
