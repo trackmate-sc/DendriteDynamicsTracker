@@ -73,7 +73,6 @@ public class BranchBuilder
 				ra.get().setInt( junction.id() );
 			}
 		}
-		ImageJFunctions.show( junctionImg, "JunctionID" ); // DEBUG
 	}
 
 	public List< Branch > process()
@@ -146,18 +145,13 @@ public class BranchBuilder
 
 	private Branch createBranch( final Localizable start, final Point junctionPixel, final List< Point > branchPixels )
 	{
+		
 		raJunctionImg.setPosition( junctionPixel );
 		final int junctionID = raJunctionImg.get().getInt();
 		final Junction junction = junctionIdMap.get( Integer.valueOf( junctionID ) );
 		final Branch branch = new Branch( start, junctionPixel, junction );
-		if ( null == junction )
-		{
-			System.out.println( "Could not find a junction with id " + junctionID + " at " + junctionPixel ); // DEBUG
-		}
-		else
-		{
+		if ( null != junction )
 			junction.addBranch( branch );
-		}
 		return branch;
 	}
 
