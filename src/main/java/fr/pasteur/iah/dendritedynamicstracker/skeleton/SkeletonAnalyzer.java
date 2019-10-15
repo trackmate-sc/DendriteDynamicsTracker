@@ -2,23 +2,15 @@ package fr.pasteur.iah.dendritedynamicstracker.skeleton;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-
-import org.scijava.plugin.Plugin;
-
-import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer.SkeletonAnalysis;
-import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer.SkeletonAnalysis.Junction;
 
 import net.imagej.ops.special.function.AbstractBinaryFunctionOp;
 import net.imglib2.Cursor;
 import net.imglib2.Interval;
-import net.imglib2.Localizable;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessible;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.RealLocalizable;
 import net.imglib2.algorithm.neighborhood.Neighborhood;
 import net.imglib2.algorithm.neighborhood.RectangleShape;
 import net.imglib2.algorithm.neighborhood.RectangleShape.NeighborhoodsAccessible;
@@ -30,17 +22,22 @@ import net.imglib2.util.Util;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
+import org.scijava.plugin.Plugin;
+
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalysis.Branch;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalysis.Junction;
+
 @Plugin( type = SkeletonAnalyzer.class )
 public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryFunctionOp< RandomAccessible< T >, Interval, SkeletonAnalysis >
 {
 
-	private static final int END_POINT_TAG = 2;
-
-	private static final int SLAB_TAG = 1;
-
+	static final int END_POINT_TAG = 2;
+	
+	static final int JUNCTION_TAG = 3;
+	
+	static final int SLAB_TAG = 1;
+	
 	private static final int JUNCTION_TAG_TEMP = 255;
-
-	private static final int JUNCTION_TAG = 3;
 
 	@Override
 	public SkeletonAnalysis calculate( final RandomAccessible< T > skeleton, final Interval interval )
@@ -49,7 +46,7 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 		/*
 		 * Generate skeleton-tagged image.
 		 */
-		Img< UnsignedByteType > taggedSkeleton = createTaggedSkeleton( skeleton, interval );
+		final Img< UnsignedByteType > taggedSkeleton = createTaggedSkeleton( skeleton, interval );
 
 		/*
 		 * Group junction pixels into junctions.
@@ -57,13 +54,20 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 		final List< Junction > junctions = groupJunctions( taggedSkeleton );
 
 		/*
+		 * Find and measure branches: between end-points and junctions.
+		 */
+
+		final BranchBuilder branchBuilder = new BranchBuilder( taggedSkeleton, junctions );
+		final List< Branch > branches = branchBuilder.process();
+
+		/*
 		 * Return
 		 */
 
-		return new SkeletonAnalysis( taggedSkeleton, junctions );
+		return new SkeletonAnalysis( taggedSkeleton, junctions, branches );
 	}
 
-	private Img< UnsignedByteType > createTaggedSkeleton( RandomAccessible< T > skeleton, Interval interval )
+	private Img< UnsignedByteType > createTaggedSkeleton( final RandomAccessible< T > skeleton, final Interval interval )
 	{
 
 		final Img< UnsignedByteType > taggedSkeleton = Util.getArrayOrCellImgFactory( interval, new UnsignedByteType() ).create( interval );
@@ -106,17 +110,17 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 		return taggedSkeleton;
 	}
 
-	private void removeBorderEndPoints( Img< UnsignedByteType > taggedSkeleton )
+	private void removeBorderEndPoints( final Img< UnsignedByteType > taggedSkeleton )
 	{
 		for ( int dFixed = 0; dFixed < taggedSkeleton.numDimensions(); dFixed++ )
 		{
-			IntervalView< UnsignedByteType > hyperSlice1 = Views.hyperSlice( taggedSkeleton, dFixed, taggedSkeleton.min( dFixed ) );
-			for ( UnsignedByteType p : hyperSlice1 )
+			final IntervalView< UnsignedByteType > hyperSlice1 = Views.hyperSlice( taggedSkeleton, dFixed, taggedSkeleton.min( dFixed ) );
+			for ( final UnsignedByteType p : hyperSlice1 )
 				if ( p.get() == END_POINT_TAG )
 					p.set( SLAB_TAG );
 
-			IntervalView< UnsignedByteType > hyperSlice2 = Views.hyperSlice( taggedSkeleton, dFixed, taggedSkeleton.max( dFixed ) );
-			for ( UnsignedByteType p : hyperSlice2 )
+			final IntervalView< UnsignedByteType > hyperSlice2 = Views.hyperSlice( taggedSkeleton, dFixed, taggedSkeleton.max( dFixed ) );
+			for ( final UnsignedByteType p : hyperSlice2 )
 				if ( p.get() == END_POINT_TAG )
 					p.set( SLAB_TAG );
 		}
@@ -128,7 +132,8 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 		final RandomAccess< Neighborhood< UnsignedByteType > > raNeighborhood = neighborhoods.randomAccess( Intervals.expand( taggedSkeleton, 1 ) );
 		final Cursor< UnsignedByteType > cursor = taggedSkeleton.localizingCursor();
 
-		int junctionID = 0;
+		// Start at 1 so that we are not confused with bg = 0.
+		int junctionID = 1;
 		final List< Junction > junctions = new ArrayList<>();
 		while ( cursor.hasNext() )
 		{
@@ -144,7 +149,7 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 			final ArrayDeque< Point > queue = new ArrayDeque<>();
 			queue.add( start );
 
-			final SkeletonAnalysis.Junction junction = new SkeletonAnalysis.Junction( junctionID++, start );
+			final Junction junction = new Junction( junctionID++, start );
 			junctions.add( junction );
 
 			// Visit neighborhood.
@@ -187,109 +192,5 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 	public static final < T extends RealType< T > > SkeletonAnalysis analyze( final RandomAccessibleInterval< T > skeleton )
 	{
 		return analyze( skeleton, skeleton );
-	}
-
-	public static class SkeletonAnalysis
-	{
-
-		public final Img< UnsignedByteType > taggedSkeleton;
-
-		private List< Junction > junctions;
-
-		private SkeletonAnalysis( final Img< UnsignedByteType > taggedSkeleton, final List< Junction > junctions )
-		{
-			this.taggedSkeleton = taggedSkeleton;
-			this.junctions = junctions;
-		}
-
-		public List< Junction > getJunctions()
-		{
-			return Collections.unmodifiableList( junctions );
-		}
-
-		public static class Junction implements RealLocalizable
-		{
-
-			private final int id;
-
-			private double[] sumPos;
-
-			private int nPos = 0;
-
-			private Localizable pixel;
-
-			private Junction( final int id, final Localizable pixel )
-			{
-				this.id = id;
-				this.sumPos = new double[ pixel.numDimensions() ];
-				final Point r = Point.wrap( new long[ pixel.numDimensions() ] );
-				r.setPosition( pixel );
-				this.pixel = r;
-			}
-
-			private void increment( final Localizable pos )
-			{
-				nPos++;
-				for ( int d = 0; d < sumPos.length; d++ )
-					sumPos[ d ] += pos.getDoublePosition( d );
-			}
-
-			/**
-			 * Returns the position of one pixel of the junction. The position
-			 * of this pixel in the junction is random.
-			 */
-			public Localizable getPixel()
-			{
-				return pixel;
-			}
-
-			public int getSize()
-			{
-				return nPos;
-			}
-
-			public int id()
-			{
-				return id;
-			}
-
-			@Override
-			public int numDimensions()
-			{
-				return sumPos.length;
-			}
-
-			@Override
-			public void localize( final float[] position )
-			{
-				for ( int d = 0; d < position.length; d++ )
-					position[ d ] = ( float ) ( sumPos[ d ] / nPos );
-			}
-
-			@Override
-			public void localize( final double[] position )
-			{
-				for ( int d = 0; d < position.length; d++ )
-					position[ d ] = sumPos[ d ] / nPos;
-			}
-
-			@Override
-			public float getFloatPosition( final int d )
-			{
-				return ( float ) getDoublePosition( d );
-			}
-
-			@Override
-			public double getDoublePosition( final int d )
-			{
-				return sumPos[ d ] / nPos;
-			}
-
-			@Override
-			public String toString()
-			{
-				return "Junction-" + id + "_N" + nPos + "_@" + Util.printCoordinates( this );
-			}
-		}
 	}
 }
