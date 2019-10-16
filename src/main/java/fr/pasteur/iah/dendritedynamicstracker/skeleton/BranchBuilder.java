@@ -87,7 +87,11 @@ public class BranchBuilder
 		{
 			cursor.fwd();
 			if ( cursor.get().get() == END_POINT_TAG )
-				branches.add( processBranch( cursor ) );
+			{
+				final Branch branch = processBranch( cursor );
+				if ( null != branch )
+					branches.add( branch );
+			}
 
 		}
 		return branches;
@@ -135,9 +139,13 @@ public class BranchBuilder
 
 			default:
 				/*
-				 * I am in trouble because this situation is unexpected.
+				 * I am in trouble because this situation is unexpected. We
+				 * reached the border of the image or something like this. We
+				 * give up on this branch.
 				 */
-				throw new IllegalStateException( "Did not found a successor pixel for the skeleton at " + current );
+				return null;
+			// throw new IllegalStateException( "Did not found a successor pixel
+			// for the skeleton at " + current );
 			}
 		}
 	}
@@ -165,6 +173,8 @@ public class BranchBuilder
 		while ( cursor.hasNext() )
 		{
 			cursor.fwd();
+			if ( !Intervals.contains( taggedSkeleton, cursor ) )
+				continue;
 			if ( cursor.get().get() != 0 )
 			{
 				current.setPosition( cursor );
