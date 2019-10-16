@@ -48,11 +48,19 @@ public class SkeletonAnalysis
 
 		private final Junction junction;
 
-		Branch( final Localizable endPoint, final Localizable junctionPoint, final Junction junction )
+		private final double branchLength;
+
+		Branch( final Localizable endPoint, final Localizable junctionPoint, final Junction junction, final double branchLength )
 		{
 			this.endPoint = new Point( endPoint );
 			this.junctionPoint = new Point( junctionPoint );
 			this.junction = junction;
+			this.branchLength = branchLength;
+		}
+
+		public double getBranchLength()
+		{
+			return branchLength;
 		}
 		
 		public Localizable getEndPoint()
@@ -73,7 +81,7 @@ public class SkeletonAnalysis
 		@Override
 		public String toString()
 		{
-			return "Branch_@" + endPoint + "->" + junctionPoint + 
+			return "Branch_@" + endPoint + "->" + junctionPoint + "_L" + branchLength +
 					( ( null == junction ) ? "_NoJunction" : ( "_J" + junction.id() ) );
 		}
 

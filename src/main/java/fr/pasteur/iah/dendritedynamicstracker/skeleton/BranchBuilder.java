@@ -18,7 +18,6 @@ import net.imglib2.algorithm.neighborhood.Neighborhood;
 import net.imglib2.algorithm.neighborhood.RectangleShape;
 import net.imglib2.algorithm.neighborhood.RectangleShape.NeighborhoodsAccessible;
 import net.imglib2.img.Img;
-import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.util.Intervals;
@@ -145,11 +144,10 @@ public class BranchBuilder
 
 	private Branch createBranch( final Localizable start, final Point junctionPixel, final List< Point > branchPixels )
 	{
-		
 		raJunctionImg.setPosition( junctionPixel );
 		final int junctionID = raJunctionImg.get().getInt();
 		final Junction junction = junctionIdMap.get( Integer.valueOf( junctionID ) );
-		final Branch branch = new Branch( start, junctionPixel, junction );
+		final Branch branch = new Branch( start, junctionPixel, junction, calculateLength( branchPixels ) );
 		if ( null != junction )
 			junction.addBranch( branch );
 		return branch;
@@ -157,7 +155,7 @@ public class BranchBuilder
 
 	private Branch createSingleBranch( final Localizable start, final Point current, final List< Point > branchPixels )
 	{
-		return new Branch( start, current, null );
+		return new Branch( start, current, null, calculateLength( branchPixels ) );
 	}
 
 	private int nextSlabPixel( final Point current )
@@ -175,5 +173,26 @@ public class BranchBuilder
 		}
 		// Nothing found.
 		return NOTHING_FOUND;
+	}
+
+	private static double calculateLength( final List< Point > points )
+	{
+		if ( points.size() < 2 )
+			return 0.;
+
+		final int numDimensions = points.get( 0 ).numDimensions();
+		double d2 = 0.;
+		Point source = points.get( 0 );
+		for ( int i = 1; i < points.size(); i++ )
+		{
+			final Point target = points.get( i );
+			for ( int d = 0; d < numDimensions; d++ )
+			{
+				final double dx = target.getDoublePosition( d ) - source.getDoublePosition( d );
+				d2 += dx * dx;
+			}
+			source = target;
+		}
+		return Math.sqrt( d2 );
 	}
 }
