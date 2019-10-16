@@ -7,6 +7,7 @@ import java.util.Deque;
 import java.util.Iterator;
 
 import net.imglib2.Cursor;
+import net.imglib2.Interval;
 import net.imglib2.Localizable;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
@@ -15,6 +16,7 @@ import net.imglib2.algorithm.neighborhood.RectangleShape;
 import net.imglib2.algorithm.neighborhood.RectangleShape.NeighborhoodsAccessible;
 import net.imglib2.img.Img;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.util.Intervals;
 
 public class ByteValueIterator implements Iterator< Localizable >
 {
@@ -32,6 +34,8 @@ public class ByteValueIterator implements Iterator< Localizable >
 
 	private final int lookupValue;
 
+	private final Interval interval;
+
 	ByteValueIterator( final Img< UnsignedByteType > taggedSkeleton, final Localizable start, final int lookupValue )
 	{
 		this.lookupValue = lookupValue;
@@ -40,6 +44,7 @@ public class ByteValueIterator implements Iterator< Localizable >
 		this.visited = new ArrayList<>();
 		this.toVisit = new ArrayDeque<>();
 		toVisit.push( new Point( start ) );
+		this.interval = taggedSkeleton;
 	}
 
 	private void visit( final Point point )
@@ -50,6 +55,8 @@ public class ByteValueIterator implements Iterator< Localizable >
 		while ( cursor.hasNext() )
 		{
 			cursor.fwd();
+			if ( !Intervals.contains( interval, cursor ) )
+				continue;
 
 			final int val = cursor.get().get();
 			if ( val == lookupValue )

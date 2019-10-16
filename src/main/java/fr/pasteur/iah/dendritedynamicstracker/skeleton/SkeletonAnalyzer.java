@@ -165,6 +165,9 @@ public class SkeletonAnalyzer< T extends RealType< T > > extends AbstractBinaryF
 				while ( lc.hasNext() )
 				{
 					lc.fwd();
+					if ( !Intervals.contains( taggedSkeleton, lc ) )
+						continue;
+
 					if ( lc.get().get() == JUNCTION_TAG_TEMP )
 					{
 						lc.get().set( JUNCTION_TAG );
