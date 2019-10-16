@@ -7,6 +7,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import net.imagej.ops.special.function.AbstractUnaryFunctionOp;
+import net.imglib2.RealLocalizable;
+import net.imglib2.algorithm.MultiThreaded;
+import net.imglib2.img.Img;
+import net.imglib2.img.display.imagej.ImageJFunctions;
+import net.imglib2.multithreading.SimpleMultiThreading;
+import net.imglib2.type.numeric.RealType;
+
 import org.scijava.ItemIO;
 import org.scijava.app.StatusService;
 import org.scijava.log.LogService;
@@ -16,19 +24,14 @@ import org.scijava.plugin.Plugin;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.SpotCollection;
 import fr.pasteur.iah.dendritedynamicstracker.SkeletonKeyPointsDetector.DetectionResults;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalysis;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalysis.Branch;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalysis.Junction;
+import fr.pasteur.iah.dendritedynamicstracker.skeleton.SkeletonAnalyzer;
 import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.plugin.ChannelSplitter;
 import ij.plugin.Duplicator;
-import net.imagej.ops.special.function.AbstractUnaryFunctionOp;
-import net.imglib2.algorithm.MultiThreaded;
-import net.imglib2.multithreading.SimpleMultiThreading;
-import sc.fiji.analyzeSkeleton.AnalyzeSkeleton_;
-import sc.fiji.analyzeSkeleton.Edge;
-import sc.fiji.analyzeSkeleton.Graph;
-import sc.fiji.analyzeSkeleton.Point;
-import sc.fiji.analyzeSkeleton.SkeletonResult;
-import sc.fiji.analyzeSkeleton.Vertex;
 
 @SuppressWarnings( "deprecation" )
 @Plugin( type = SkeletonKeyPointsDetector.class )
@@ -87,26 +90,21 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		final Roi roi = imp.getRoi();
 		skeleton.setRoi( roi );
 		origImp.setRoi( roi );
-		final int[] start = new int[] {
-				null == roi ? 0 : roi.getBounds().x,
-				null == roi ? 0 : roi.getBounds().y,
+		final int[] start = new int[] { 
+				null == roi ? 0 : roi.getBounds().x, 
+				null == roi ? 0 : roi.getBounds().y, 
 				0 };
 
-		final double[] calibration = new double[] {
-				imp.getCalibration().pixelWidth,
-				imp.getCalibration().pixelHeight,
-				imp.getCalibration().pixelDepth
+		final double[] calibration = new double[] { 
+				imp.getCalibration().pixelWidth, 
+				imp.getCalibration().pixelHeight, 
+				imp.getCalibration().pixelDepth 
 		};
 		final double frameInterval = imp.getCalibration().frameInterval;
 
 		final int nFrames = skeleton.getNFrames();
 		final int firstZ = 1;
 		final int lastZ = skeleton.getNSlices();
-
-		final boolean pruneEnds = false; // Don't prune branch ends.
-		final boolean shortPath = false; // Don't compute shortest path.
-		final boolean silent = true;
-		final boolean verbose = false;
 
 		status.showStatus( "Processing skeleton." );
 
@@ -127,7 +125,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		{
 
 			final Duplicator duplicator = new Duplicator();
-			final AnalyzeSkeleton_ skelAnalyzer = new AnalyzeSkeleton_();
 
 			final Map< Spot, Spot > junctionMapLocal = new HashMap<>();
 			junctionMapList.add( junctionMapLocal );
@@ -141,6 +138,7 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 			threads[ ithread ] = new Thread( "Detection thread " + ( 1 + ithread ) + "/" + threads.length )
 			{
 
+				@SuppressWarnings( "unchecked" )
 				@Override
 				public void run()
 				{
@@ -153,68 +151,40 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 						// Collection of end-points found in this frame.
 						final List< Spot > endPoints = new ArrayList<>();
 
-						// Maps a graph vertex to the spot created from it.
-						final Map< Vertex, Spot > vertexMap = new HashMap<>();
-
-						// Maps a Spot to its graph.
-						final Map< Spot, Graph > graphMap = new HashMap<>();
-
 						final ImagePlus skeletonFrame = duplicator.run( skeleton, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
-						final ImagePlus origImpFrame = duplicator.run( origImp, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 
-						skelAnalyzer.setup( "", skeletonFrame );
-						final SkeletonResult result = skelAnalyzer.run( prunningMethod, pruneEnds, shortPath, origImpFrame, silent, verbose, null );
+						// For when we do prunning loop.
+						// final ImagePlus origImpFrame = duplicator.run(
+						// origImp, 1, 1, firstZ, lastZ, frame + 1, frame + 1 );
 
-						final Graph[] graphs = result.getGraph();
-						for ( final Graph graph : graphs )
+						final Img< ? > rawImg = ImageJFunctions.wrap( skeletonFrame );
+						@SuppressWarnings( "rawtypes" )
+						final Img< RealType > img = ( Img< RealType > ) rawImg;
+						final SkeletonAnalysis skeletonAnalysis = SkeletonAnalyzer.analyze( img );
+
+						/*
+						 * Find junctions.
+						 */
+						final Map< Junction, Spot > junctionSpots = new HashMap<>();
+						for ( final Junction junction : skeletonAnalysis.getJunctions() )
 						{
-							final List< Vertex > vertices = graph.getVertices();
+							final Spot spot = locToSpot( junction, calibration, start, true );
+							spot.putFeature( Spot.POSITION_T, frame * frameInterval );
+							junctions.add( spot );
+							junctionSpots.put( junction, spot );
+						}
 
-							/*
-							 * Find junctions.
-							 */
+						for ( final Branch branch : skeletonAnalysis.getBranches() )
+						{
+							final Spot spot = locToSpot( branch.getEndPoint(), calibration, start, false );
+							spot.putFeature( Spot.POSITION_T, frame * frameInterval );
+							endPoints.add( spot );
 
-							for ( final Vertex vertex : vertices )
+							if ( null != branch.getJunction() )
 							{
-								if ( vertex.getBranches().size() == 1 )
-									continue;
-
-								final Spot spot = vertexToSpot( vertex, calibration, start );
-								spot.putFeature( Spot.POSITION_T, frame * frameInterval );
-								vertexMap.put( vertex, spot );
-								graphMap.put( spot, graph );
-
-								junctions.add( spot );
+								final Spot junctionSpot = junctionSpots.get( branch.getJunction() );
+								junctionMapLocal.put( spot, junctionSpot );
 							}
-
-							/*
-							 * Find end points and link them to their junction.
-							 */
-
-							for ( final Vertex vertex : vertices )
-							{
-								if ( vertex.getBranches().size() != 1 )
-									continue;
-
-								final Spot spot = vertexToSpot( vertex, calibration, start );
-								spot.putFeature( Spot.POSITION_T, frame * frameInterval );
-								vertexMap.put( vertex, spot );
-								graphMap.put( spot, graph );
-
-								endPoints.add( spot );
-
-								// Find matching junction.
-								final Edge predecessor = vertex.getBranches().get( 0 );
-								if ( null == predecessor )
-									continue;
-
-								final Vertex oppositeVertex = predecessor.getOppositeVertex( vertex );
-								final Spot junctionSpot = vertexMap.get( oppositeVertex );
-								if ( null != junctionSpot )
-									junctionMapLocal.put( spot, junctionSpot );
-
-							}
-
 						}
 
 						junctionsLocal.put( Integer.valueOf( frame ), junctions );
@@ -252,26 +222,15 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 
 	}
 
-	private static final Spot vertexToSpot( final Vertex vertex, final double[] calibration, final int[] start )
+	private static final Spot locToSpot( final RealLocalizable pos, final double[] calibration, final int[] start, final boolean isJunction )
 	{
-		final List< Point > points = vertex.getPoints();
-		final double xi = points.stream()
-				.mapToDouble( p -> p.x )
-				.average()
-				.getAsDouble();
-		final double yi = points.stream()
-				.mapToDouble( p -> p.y )
-				.average()
-				.getAsDouble();
-		final double zi = points.stream()
-				.mapToDouble( p -> p.z )
-				.average()
-				.getAsDouble();
-
-		final double x = ( start[ 0 ] + xi ) * calibration[ 0 ];
-		final double y = ( start[ 1 ] + yi ) * calibration[ 1 ];
-		final double z = ( start[ 2 ] + zi ) * calibration[ 2 ];
-		final boolean isJunction = vertex.getBranches().size() > 1;
+		final double x = ( start[ 0 ] + pos.getDoublePosition( 0 ) ) * calibration[ 0 ];
+		final double y = ( start[ 1 ] + pos.getDoublePosition( 1 ) ) * calibration[ 1 ];
+		final double z;
+		if ( pos.numDimensions() > 2 )
+			z = ( start[ 2 ] + pos.getDoublePosition( 2 ) ) * calibration[ 2 ];
+		else
+			z = start[ 2 ] * calibration[ 2 ];
 		final double radius = isJunction ? JUNCTION_POINTS_RADIUS : END_POINTS_RADIUS;
 		final double quality = isJunction ? JUNCTION_POINTS_QUALITY_VALUE : END_POINTS_QUALITY_VALUE;
 		final Spot spot = new Spot( x, y, z, radius, quality );
