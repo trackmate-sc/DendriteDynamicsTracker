@@ -7,14 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import net.imagej.ops.special.function.AbstractUnaryFunctionOp;
-import net.imglib2.RealLocalizable;
-import net.imglib2.algorithm.MultiThreaded;
-import net.imglib2.img.Img;
-import net.imglib2.img.display.imagej.ImageJFunctions;
-import net.imglib2.multithreading.SimpleMultiThreading;
-import net.imglib2.type.numeric.RealType;
-
 import org.scijava.ItemIO;
 import org.scijava.app.StatusService;
 import org.scijava.log.LogService;
@@ -32,10 +24,17 @@ import ij.ImagePlus;
 import ij.gui.Roi;
 import ij.plugin.ChannelSplitter;
 import ij.plugin.Duplicator;
+import net.imagej.ops.special.function.AbstractUnaryFunctionOp;
+import net.imglib2.RealLocalizable;
+import net.imglib2.algorithm.MultiThreaded;
+import net.imglib2.img.Img;
+import net.imglib2.img.display.imagej.ImageJFunctions;
+import net.imglib2.multithreading.SimpleMultiThreading;
+import net.imglib2.type.numeric.RealType;
 
 @SuppressWarnings( "deprecation" )
 @Plugin( type = SkeletonKeyPointsDetector.class )
-public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlus, DetectionResults > implements MultiThreaded
+public class SkeletonKeyPointsDetector2 extends AbstractUnaryFunctionOp< ImagePlus, DetectionResults > implements MultiThreaded
 {
 
 	private final static double END_POINTS_QUALITY_VALUE = 1.;
@@ -63,7 +62,7 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 
 	private int numThreads;
 
-	public SkeletonKeyPointsDetector()
+	public SkeletonKeyPointsDetector2()
 	{
 		setNumThreads();
 	}
@@ -90,15 +89,15 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		final Roi roi = imp.getRoi();
 		skeleton.setRoi( roi );
 		origImp.setRoi( roi );
-		final int[] start = new int[] { 
-				null == roi ? 0 : roi.getBounds().x, 
-				null == roi ? 0 : roi.getBounds().y, 
+		final int[] start = new int[] {
+				null == roi ? 0 : roi.getBounds().x,
+				null == roi ? 0 : roi.getBounds().y,
 				0 };
 
-		final double[] calibration = new double[] { 
-				imp.getCalibration().pixelWidth, 
-				imp.getCalibration().pixelHeight, 
-				imp.getCalibration().pixelDepth 
+		final double[] calibration = new double[] {
+				imp.getCalibration().pixelWidth,
+				imp.getCalibration().pixelHeight,
+				imp.getCalibration().pixelDepth
 		};
 		final double frameInterval = imp.getCalibration().frameInterval;
 
@@ -235,26 +234,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		final double quality = isJunction ? JUNCTION_POINTS_QUALITY_VALUE : END_POINTS_QUALITY_VALUE;
 		final Spot spot = new Spot( x, y, z, radius, quality );
 		return spot;
-	}
-
-	public static final class DetectionResults
-	{
-
-		public final SpotCollection junctionsSpots;
-
-		public final SpotCollection endPointSpots;
-
-		/**
-		 * Maps a skeleton end-point spot to its junction spot.
-		 */
-		public final Map< Spot, Spot > junctionMap;
-
-		public DetectionResults( final SpotCollection junctionsSpots, final SpotCollection endPointSpots, final Map< Spot, Spot > junctionMap )
-		{
-			this.junctionsSpots = junctionsSpots;
-			this.endPointSpots = endPointSpots;
-			this.junctionMap = junctionMap;
-		}
 	}
 
 	@Override
