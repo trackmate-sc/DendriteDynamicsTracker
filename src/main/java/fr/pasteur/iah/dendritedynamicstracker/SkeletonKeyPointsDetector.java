@@ -123,9 +123,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		// Map of frame vs end-points found in this frame - one per thread.
 		final List< Map< Integer, Collection< Spot > > > endPointsList = new ArrayList<>( threads.length );
 
-		// Map of AS graphs, found in each frame - one per thread.
-		final List< Map< Integer, Graph[] > > graphsList = new ArrayList<>( threads.length );
-
 		// Map that links spots to AS vertices - one per thread.
 		final List< Map< Integer, Map< Spot, Vertex > > > spotMapList = new ArrayList<>( threads.length );
 
@@ -147,9 +144,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 
 			final Map< Integer, Collection< Spot > > endPointsLocal = new HashMap<>();
 			endPointsList.add( endPointsLocal );
-
-			final Map< Integer, Graph[] > graphsLocal = new HashMap<>();
-			graphsList.add( graphsLocal );
 
 			final Map< Integer, Map< Spot, Vertex > > spotMapLocal = new HashMap<>();
 			spotMapList.add( spotMapLocal );
@@ -238,7 +232,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 
 						junctionsLocal.put( Integer.valueOf( frame ), junctions );
 						endPointsLocal.put( Integer.valueOf( frame ), endPoints );
-						graphsLocal.put( Integer.valueOf( frame ), graphs );
 						spotMapLocal.put( Integer.valueOf( frame ), spotMap );
 						vertexMapLocal.put( Integer.valueOf( frame ), vertexMap );
 
@@ -270,10 +263,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 				endPointSpots.put( frame, map.get( frame ) );
 		endPointSpots.setVisible( true );
 
-		final Map< Integer, Graph[] > graphs = new HashMap<>();
-		for ( final Map< Integer, Graph[] > map : graphsList )
-			graphs.putAll( map );
-
 		final Map<Spot, Vertex> spotMap = new HashMap<>();
 		for ( final Map< Integer, Map< Spot, Vertex > > map : spotMapList )
 			for ( final Integer frame : map.keySet() )
@@ -288,10 +277,8 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 				junctionsSpots,
 				endPointSpots,
 				junctionMap,
-				graphs,
 				spotMap,
 				vertexMap  );
-
 	}
 
 	private static final Spot vertexToSpot( final Vertex vertex, final double[] calibration, final int[] start )
@@ -332,8 +319,6 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 		 */
 		public final Map< Spot, Spot > junctionMap;
 
-		private final Map< Integer, Graph[] > graphs;
-
 		private final Map< Spot, Vertex > spotMap;
 
 		private final Map< Vertex, Spot > vertexMap;
@@ -342,21 +327,14 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 				final SpotCollection junctionsSpots,
 				final SpotCollection endPointSpots,
 				final Map< Spot, Spot > junctionMap,
-				final Map< Integer, Graph[] > graphs,
 				final Map< Spot, Vertex > spotMap,
 				final Map< Vertex, Spot > vertexMap )
 		{
 			this.junctionsSpots = junctionsSpots;
 			this.endPointSpots = endPointSpots;
 			this.junctionMap = junctionMap;
-			this.graphs = graphs;
 			this.spotMap = spotMap;
 			this.vertexMap = vertexMap;
-		}
-
-		public Graph[] getGraph( final int frame )
-		{
-			return graphs.get( Integer.valueOf( frame ) );
 		}
 
 		public Vertex getVertexFor( final Spot spot )
