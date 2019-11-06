@@ -1,23 +1,9 @@
 package fr.pasteur.iah.dendritedynamicstracker;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.IntStream;
 
-import javax.swing.BoxLayout;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartPanel;
-import org.jfree.chart.JFreeChart;
-import org.jfree.data.xy.DefaultXYDataset;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.scijava.ItemIO;
 import org.scijava.app.StatusService;
@@ -27,7 +13,6 @@ import org.scijava.log.LogService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
-import fiji.plugin.trackmate.FeatureModel;
 import fiji.plugin.trackmate.Logger;
 import fiji.plugin.trackmate.Model;
 import fiji.plugin.trackmate.Settings;
@@ -38,7 +23,6 @@ import fiji.plugin.trackmate.detection.ManualDetectorFactory;
 import fiji.plugin.trackmate.features.edges.EdgeTargetAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackIndexAnalyzer;
-import fiji.plugin.trackmate.features.track.TrackSpotQualityFeatureAnalyzer;
 import fiji.plugin.trackmate.gui.GuiUtils;
 import fiji.plugin.trackmate.gui.TrackMateGUIController;
 import fiji.plugin.trackmate.gui.descriptors.ConfigureViewsDescriptor;
@@ -56,9 +40,6 @@ import ij.IJ;
 import ij.ImagePlus;
 import net.imagej.ops.OpService;
 import net.imagej.ops.special.function.Functions;
-import net.imglib2.util.Util;
-import sc.fiji.analyzeSkeleton.Edge;
-import sc.fiji.analyzeSkeleton.Vertex;
 
 @Plugin( type = Command.class, name = "Dendrite Dynamics Tracker", menuPath = "Plugins>Tracking>Dendrite Dynamics Tracker" )
 public class DendriteDynamicsTrackerCommand extends ContextCommand
@@ -157,7 +138,13 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Analyze results.
 		 */
 
-		analyzeDendriteDynamics( endPointTrackmate.getModel(), junctionModel, detectionResults );
+		status.showStatus( "Analyzing dendrite tracks." );
+		final DendriteTrackAnalysis dendriteTrackAnalysis = new DendriteTrackAnalysis( endPointTrackmate.getModel(), junctionModel, detectionResults );
+		if (!dendriteTrackAnalysis.checkInput() || !dendriteTrackAnalysis.process())
+		{
+			log.error( "Error while performing dendrite track analysis: " + dendriteTrackAnalysis.getErrorMessage() );
+			return;
+		}
 
 		/*
 		 * Display results.
@@ -170,257 +157,6 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		final HyperStackDisplayer displayer2 = new HyperStackDisplayer( endPointTrackmate.getModel(), controller2.getSelectionModel(), imp );
 		controller2.getGuimodel().addView( displayer2 );
 		displayer2.render();
-	}
-
-	private static void analyzeDendriteDynamics( final Model endPointModel, final Model junctionModel, final DetectionResults detectionResults )
-	{
-		final TrackModel trackModel = endPointModel.getTrackModel();
-		final FeatureModel featureModel = endPointModel.getFeatureModel();
-		final Set< Integer > trackIDs = trackModel.trackIDs( true );
-		int n = 0; // DEBUG
-		for ( final Integer trackID : trackIDs )
-		{
-			/*
-			 * Differentiate between junction tracks and end-point tracks based
-			 * on their quality, in case the user merged both track types.
-			 */
-			final Double meanQuality = featureModel.getTrackFeature( trackID, TrackSpotQualityFeatureAnalyzer.TRACK_MEAN_QUALITY );
-			if ( !meanQuality.equals( SkeletonKeyPointsDetector.END_POINTS_QUALITY_VALUE ) )
-				continue;
-
-			analyzeTrack( trackID, endPointModel, junctionModel, detectionResults );
-			if ( n++ > 0 )
-				break; // DEBUG
-		}
-
-	}
-
-	private static void analyzeTrack( final Integer trackID, final Model endPointModel, final Model junctionModel, final DetectionResults detectionResults )
-	{
-		System.out.println(); // DEBUG
-		final TrackModel trackModel = endPointModel.getTrackModel();
-		final List< Spot > spots = new ArrayList<>( trackModel.trackSpots( trackID ) );
-		spots.sort( Spot.frameComparator );
-
-		/*
-		 * Harvest raw branch length and junction ID.
-		 */
-
-		final double[] branchLength = new double[ spots.size() ];
-		final double[] junctionIDs = new double[ spots.size() ];
-		final double[] time = new double[ spots.size() ];
-
-		for ( int i = 0; i < spots.size(); i++ )
-		{
-			final Spot spot = spots.get( i );
-			time[ i ] = spot.getFeature( Spot.POSITION_T );
-
-			final Spot junction = detectionResults.junctionMap.get( spot );
-			final Integer junctionTrackID = junctionModel.getTrackModel().trackIDOf( junction );
-			junctionIDs[ i ] = ( junctionTrackID != null )
-					? junctionTrackID.doubleValue()
-					: Double.NaN;
-
-			final Vertex vertex = detectionResults.getVertexFor( spot );
-			final Edge predecessor = vertex.getBranches().get( 0 );
-			if ( null == predecessor )
-				continue;
-
-			final double length = predecessor.getLength_ra();
-			branchLength[ i ] = length;
-		}
-
-		/*
-		 * How many unique Junction IDs do we have? If we have more than 1, it
-		 * means that the end-point "jumped" (incorrect tracking) or that the
-		 * branch forked.
-		 */
-
-		final double[] uniqueIDs = Arrays.stream( junctionIDs )
-				.filter( v -> !Double.isNaN( v ) )
-				.distinct()
-				.toArray();
-
-		System.out.println( "Unique junction IDs found: " + Util.printCoordinates( uniqueIDs ) ); // DEBUG
-
-		if ( uniqueIDs.length > 1 )
-		{
-
-			Arrays.sort( uniqueIDs );
-			// Histogram of these unique IDs.
-			final int[] counts = new int[ uniqueIDs.length ];
-			for ( int i = 0; i < junctionIDs.length; i++ )
-			{
-				final double junctionID = junctionIDs[ i ];
-				if ( Double.isNaN( junctionID ) )
-					continue;
-				final int idx = Arrays.binarySearch( uniqueIDs, junctionID );
-				counts[ idx ]++;
-			}
-
-			/*
-			 * Only correct if we can find a junction ID that is present for
-			 * more than 1/4th of the total track duration.
-			 */
-			final double minCount = spots.size() / 4;
-			final double[] uniqueIDsLong = IntStream.range( 0, counts.length )
-					.filter( i -> counts[ i ] > minCount )
-					.mapToDouble( i -> uniqueIDs[ i ] )
-					.toArray();
-
-			System.out.println( "Unique LONG junction IDs found: " + Util.printCoordinates( uniqueIDsLong ) ); // DEBUG
-
-			/*
-			 * Try to bridge and restore branch length for end-points that do
-			 * not connect to the desired junction. We try each junction unique
-			 * long id, and only take the one that gives the best correction.
-			 */
-
-			// Store the corrected branch length for each candidate.
-			final double[][] correctedBranchLength = new double[ uniqueIDsLong.length ][ branchLength.length ];
-			for ( int i = 0; i < uniqueIDsLong.length; i++ )
-				correctedBranchLength[ i ] = Arrays.copyOf( branchLength, branchLength.length );
-
-			// Store the corrected junction ID for each candidate.
-			final double[][] correctedJunctionIDs = new double[ uniqueIDsLong.length ][ junctionIDs.length ];
-			for ( int i = 0; i < uniqueIDsLong.length; i++ )
-				correctedJunctionIDs[ i ] = Arrays.copyOf( junctionIDs, junctionIDs.length );
-
-			// Stores the successful correction we have made for each candidate.
-			final int[] successfulCorrections = new int[ uniqueIDsLong.length ];
-
-			for ( int i = 0; i < uniqueIDsLong.length; i++ )
-			{
-				final double candidate = uniqueIDsLong[ i ];
-				for ( int t = 0; t < junctionIDs.length; t++ )
-				{
-					if ( junctionIDs[ t ] == candidate )
-						continue; // Do not touch.
-
-					/*
-					 * Breadth-first iterator to find the candidate junction.
-					 * The queue stores the paths so that we can backtrack to
-					 * the start of the search.
-					 */
-
-					final ArrayDeque< List< Vertex > > queue = new ArrayDeque<>();
-					final Set< Vertex > visited = new HashSet<>();
-
-					final Spot endPointSpot = spots.get( t );
-					final Vertex endPointVertex = detectionResults.getVertexFor( endPointSpot );
-					queue.add( Collections.singletonList( endPointVertex ) );
-
-					System.out.println(); // DEBUG
-					System.out.println( "At time " + t + ", searching for id=" + candidate + " from " + endPointVertex ); // DEBUG
-
-					while ( !queue.isEmpty() )
-					{
-						final List< Vertex > path = queue.remove();
-
-						// Take the last item of the path.
-						final Vertex vertex = path.get( path.size() - 1 );
-						if ( visited.contains( vertex ) )
-							continue;
-
-						System.out.println( " - visiting " + vertex.getPoints().get( 0 ) ); // DEBUG
-						visited.add( vertex );
-
-						final Spot junctionCandidate = detectionResults.getSpotFor( vertex );
-						if ( null != junctionCandidate )
-						{
-							final Integer junctionCandidateID = junctionModel.getTrackModel().trackIDOf( junctionCandidate );
-							if ( null != junctionCandidateID )
-							{
-								if ( junctionCandidateID.doubleValue() == candidate )
-								{
-									System.out.println( "   Found the right junction ID! Accepting this junction." ); // DEBUG
-									System.out.println( "   Path to start: " ); // DEBUG
-
-									// Compute new branch length.
-									double sumBranchLength = 0.;
-									Vertex source = path.get( 0 );
-									for ( int j = 1; j < path.size(); j++ )
-									{
-										final Vertex target = path.get( j );
-										for ( final Edge edge : target.getBranches() )
-										{
-											if ( source.equals( edge.getOppositeVertex( target ) ) )
-											{
-												sumBranchLength += edge.getLength_ra();
-												break;
-											}
-										}
-
-										source = target;
-									}
-
-									// Store new branch length and new junction id.
-									correctedBranchLength[ i ][ t ] = sumBranchLength;
-									correctedJunctionIDs[ i ][ t ] = candidate;
-									successfulCorrections[ i ]++;
-
-									break;
-								}
-								else
-								{
-									System.out.println( "   Found the junction ID " + junctionCandidateID + ". Continuing search." ); // DEBUG
-								}
-							}
-							else
-							{
-								System.out.println( "   Found junction spot for this one, but it is not in a junction track." ); // DEBUG
-								// What to do then?
-							}
-
-						}
-						else
-						{
-							System.out.println( "   Could not find a junction spot for this one." ); // DEBUG
-							// What to do then?
-						}
-
-						final ArrayList< Edge > branches = vertex.getBranches();
-						for ( final Edge edge : branches )
-						{
-							final Vertex other = edge.getOppositeVertex( vertex );
-							final List< Vertex > newPath = new ArrayList<>( path );
-							newPath.add( other );
-							queue.add( newPath );
-						}
-					}
-				}
-
-				final DefaultXYDataset datasetBranchLength = new DefaultXYDataset();
-				datasetBranchLength.addSeries( "Branch length " + trackID, new double[][] { time, correctedBranchLength[ i ] } );
-				final JFreeChart chartBranchLength = ChartFactory.createXYLineChart(
-						trackModel.name( trackID ),
-						"Time (" + endPointModel.getTimeUnits() + ")",
-						"Branch length (" + endPointModel.getSpaceUnits() + ")",
-						datasetBranchLength );
-				final ChartPanel chartBranchLengthPanel = new ChartPanel( chartBranchLength );
-
-				final DefaultXYDataset datasetJunctionID = new DefaultXYDataset();
-				datasetJunctionID.addSeries( "Junction ID " + trackID, new double[][] { time, correctedJunctionIDs[ i ] } );
-				final JFreeChart chartJunctionID = ChartFactory.createXYLineChart(
-						trackModel.name( trackID ),
-						"Time (" + endPointModel.getTimeUnits() + ")",
-						"Junction ID",
-						datasetJunctionID );
-				final ChartPanel chartJunctionIDPanel = new ChartPanel( chartJunctionID );
-
-				final JFrame frame = new JFrame( "Corrected branch length for " + trackModel.name( trackID ) + " with candidate id " + candidate );
-				final JPanel panel = new JPanel();
-				final BoxLayout layout = new BoxLayout( panel, BoxLayout.PAGE_AXIS );
-				panel.setLayout( layout );
-				panel.add( chartBranchLengthPanel );
-				panel.add( chartJunctionIDPanel );
-
-				frame.getContentPane().add( panel );
-				frame.pack();
-				frame.setVisible( true );
-			}
-		}
-
 	}
 
 	public static TrackMate trackEndPoints(
