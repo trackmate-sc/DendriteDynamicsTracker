@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.scijava.ItemIO;
@@ -282,23 +281,21 @@ public class SkeletonKeyPointsDetector extends AbstractUnaryFunctionOp< ImagePlu
 				vertexMap  );
 	}
 
-	private static final Random ran = new Random( 1l );
-
 	private static final Spot vertexToSpot( final Vertex vertex, final double[] calibration, final int[] start )
 	{
 		final List< Point > points = vertex.getPoints();
 		final double xi = points.stream()
 				.mapToDouble( p -> p.x )
 				.average()
-				.getAsDouble() + 0.001 * (ran.nextDouble() - 0.5);
+				.getAsDouble();
 		final double yi = points.stream()
 				.mapToDouble( p -> p.y )
 				.average()
-				.getAsDouble() + 0.001 * (ran.nextDouble() - 0.5);
+				.getAsDouble();
 		final double zi = points.stream()
 				.mapToDouble( p -> p.z )
 				.average()
-				.getAsDouble() + 0.001 * (ran.nextDouble() - 0.5);
+				.getAsDouble();
 
 		final double x = ( start[ 0 ] + xi ) * calibration[ 0 ];
 		final double y = ( start[ 1 ] + yi ) * calibration[ 1 ];
