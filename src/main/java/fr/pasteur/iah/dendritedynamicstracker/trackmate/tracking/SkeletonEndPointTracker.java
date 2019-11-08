@@ -51,10 +51,11 @@ public class SkeletonEndPointTracker extends SparseLAPFrameToFrameTracker
 		@Override
 		public double linkingCost( final Spot source, final Spot target )
 		{
-			final double sqDist = source.squareDistanceTo( target );
-			if (sqDist > maxLinkingDistance * maxLinkingDistance)
+			final double d2 = source.squareDistanceTo( target );
+			if (d2 > maxLinkingDistance * maxLinkingDistance)
 				return Double.POSITIVE_INFINITY;
 
+			final double sqDist = ( d2 == 0 ) ? Double.MIN_NORMAL : d2;
 			final Double sourceID = source.getFeature( JunctionIDAnalyzerFactory.FEATURE );
 			final Double targetID = target.getFeature( JunctionIDAnalyzerFactory.FEATURE );
 			if ( null == sourceID || null == targetID || !sourceID.equals( targetID ) )
