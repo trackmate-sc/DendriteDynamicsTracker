@@ -295,8 +295,17 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		int nNewSpots = 0;
 		try
 		{
+			/*
+			 *  Add spots that are part of tracks.
+			 */
+
+			// To harvest the max Id.
+			int maxID = -1;
 			for ( final int id : modelToMerge.getTrackModel().trackIDs( true ) )
 			{
+
+				if (id > maxID)
+					maxID = id;
 
 				/*
 				 * Add new spots built on the ones in the source.
@@ -349,12 +358,33 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 				logger.setProgress( ( double ) progress / nNewTracks );
 			}
 
+			/*
+			 * Add lonely spots.
+			 */
+
+			maxID++;
+			for ( final Spot oldSpot : modelToMerge.getSpots().iterable( true ) )
+			{
+				if ( modelToMerge.getTrackModel().trackIDOf( oldSpot ) != null )
+					continue;
+
+				// An awkward way to avoid spot ID conflicts after loading
+				// two files
+				final Spot newSpot = new Spot( oldSpot );
+				for ( final String feature : oldSpot.getFeatures().keySet() )
+					newSpot.putFeature( feature, oldSpot.getFeature( feature ) );
+
+				newSpot.setName( "JL" + maxID++ );
+				model.addSpotTo( newSpot, oldSpot.getFeature( Spot.FRAME ).intValue() );
+				nNewSpots++;
+			}
+
 		}
 		finally
 		{
 			model.endUpdate();
 			logger.setProgress( 0 );
-			logger.log( "Imported " + nNewTracks + " tracks made of " + nNewSpots + " spots.\n" );
+			logger.log( "Imported " + nNewTracks + " tracks and " + nNewSpots + " spots.\n" );
 		}
 	}
 }
