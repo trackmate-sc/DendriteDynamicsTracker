@@ -24,6 +24,7 @@ import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.TrackModel;
 import fiji.plugin.trackmate.features.track.TrackSpotQualityFeatureAnalyzer;
 import fr.pasteur.iah.dendritedynamicstracker.SkeletonKeyPointsDetector.DetectionResults;
+import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.BranchGrowPhaseAnalyzer;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.BranchLengthAnalyzerFactory;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.DendriteTrackNIncorrectIDs;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
@@ -82,8 +83,10 @@ public class DendriteTrackAnalysis implements Algorithm
 		 * Re-analyze the branches features now.
 		 */
 
+		endPointTrackMate.getSettings().addEdgeAnalyzer( new BranchGrowPhaseAnalyzer() );
 		endPointTrackMate.getSettings().addTrackAnalyzer( new TotalBranchTravelAnalyzer() );
 		endPointTrackMate.computeTrackFeatures( true );
+		endPointTrackMate.computeEdgeFeatures( true );
 
 		return true;
 	}
