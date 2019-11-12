@@ -168,7 +168,10 @@ public class DendriteTrackAnalysis implements Algorithm
 				for ( int t = 0; t < junctionIDs.length; t++ )
 				{
 					if ( junctionIDs[ t ] == candidate )
+					{
+						successfulCorrections[ i ]++;
 						continue; // Do not touch.
+					}
 
 					/*
 					 * Breadth-first iterator to find the candidate junction.
@@ -287,6 +290,7 @@ public class DendriteTrackAnalysis implements Algorithm
 			final double jid = bestJunctionIDs[ t ];
 			spot.putFeature( BranchLengthAnalyzerFactory.FEATURE, Double.valueOf( bl ) );
 			spot.putFeature( JunctionIDAnalyzerFactory.FEATURE, Double.valueOf( jid ) );
+			spot.setName( "->" + jid );
 		}
 		endPointModel.getFeatureModel().putTrackFeature( trackID, DendriteTrackNIncorrectIDs.FEATURE, Double.valueOf( nUncorrectedIDJumps ) );
 	}
