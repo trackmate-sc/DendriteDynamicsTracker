@@ -209,6 +209,13 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		}
 
 		/*
+		 * Name each branch track.
+		 */
+
+		for ( final Integer branchTrackID : endPointModel.getTrackModel().trackIDs( false ) )
+			endPointModel.getTrackModel().setName( branchTrackID, "Branch_" + branchTrackID );
+
+		/*
 		 * Merge with junction results.
 		 */
 
@@ -272,6 +279,13 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			endPoint.setName( "->" + junctionTrackID );
 		}
 
+		/*
+		 * Name each junction track.
+		 */
+
+		for ( final Integer junctionTrackID : junctionTrackModel.trackIDs( false ) )
+			junctionTrackModel.setName( junctionTrackID, "Junction_" + junctionTrackID );
+
 		return junctionModel;
 	}
 
@@ -314,12 +328,10 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 				final Set< Spot > spots = modelToMerge.getTrackModel().trackSpots( id );
 				final HashMap< Spot, Spot > mapOldToNew = new HashMap<>( spots.size() );
 
-				Spot newSpot = null; // we keep a reference to the new spot,
-										// needed below
+				// We keep a reference to the new spot, needed below.
+				Spot newSpot = null;
 				for ( final Spot oldSpot : spots )
 				{
-					// An awkward way to avoid spot ID conflicts after loading
-					// two files
 					newSpot = new Spot( oldSpot );
 					for ( final String feature : oldSpot.getFeatures().keySet() )
 						newSpot.putFeature( feature, oldSpot.getFeature( feature ) );
