@@ -20,6 +20,7 @@ import org.jfree.data.xy.DefaultXYDataset;
 import fiji.plugin.trackmate.FeatureModel;
 import fiji.plugin.trackmate.Model;
 import fiji.plugin.trackmate.Spot;
+import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.TrackModel;
 import fiji.plugin.trackmate.features.track.TrackSpotQualityFeatureAnalyzer;
 import fr.pasteur.iah.dendritedynamicstracker.SkeletonKeyPointsDetector.DetectionResults;
@@ -33,7 +34,7 @@ import sc.fiji.analyzeSkeleton.Vertex;
 public class DendriteTrackAnalysis implements Algorithm
 {
 
-	private final Model endPointModel;
+	private final TrackMate endPointTrackMate;
 
 	private final Model junctionModel;
 
@@ -42,11 +43,11 @@ public class DendriteTrackAnalysis implements Algorithm
 	private String errorMessage;
 
 	public DendriteTrackAnalysis(
-			final Model endPointModel,
+			final TrackMate endPointTrackmate,
 			final Model junctionModel,
 			final DetectionResults detectionResults )
 	{
-		this.endPointModel = endPointModel;
+		this.endPointTrackMate = endPointTrackmate;
 		this.junctionModel = junctionModel;
 		this.detectionResults = detectionResults;
 	}
@@ -54,8 +55,9 @@ public class DendriteTrackAnalysis implements Algorithm
 	@Override
 	public boolean process()
 	{
-		final TrackModel trackModel = endPointModel.getTrackModel();
-		final FeatureModel featureModel = endPointModel.getFeatureModel();
+		final Model model = endPointTrackMate.getModel();
+		final TrackModel trackModel = model.getTrackModel();
+		final FeatureModel featureModel = model.getFeatureModel();
 		final Set< Integer > trackIDs = trackModel.trackIDs( true );
 		for ( final Integer trackID : trackIDs )
 		{
@@ -67,14 +69,24 @@ public class DendriteTrackAnalysis implements Algorithm
 			if ( !meanQuality.equals( SkeletonKeyPointsDetector.END_POINTS_QUALITY_VALUE ) )
 				continue;
 
-			analyzeTrack( trackID );
+			/*
+			 * Try to 'patch' branch tracks: Can we find again the junction they
+			 * branch from, despite gaps, missed detection and other branches
+			 * that stems from the branch?
+			 */
+			patchTrack( trackID );
 		}
 		return true;
 	}
 
-	private void analyzeTrack( final Integer trackID )
+	/**
+	 * Try to 'patch' branch tracks: Can we find again the junction they branch
+	 * from, despite gaps, missed detection and other branches that stems from
+	 * the branch?
+	 */
+	private void patchTrack( final Integer trackID )
 	{
-		final TrackModel trackModel = endPointModel.getTrackModel();
+		final TrackModel trackModel = endPointTrackMate.getModel().getTrackModel();
 		final List< Spot > spots = new ArrayList<>( trackModel.trackSpots( trackID ) );
 		spots.sort( Spot.frameComparator );
 
@@ -292,7 +304,8 @@ public class DendriteTrackAnalysis implements Algorithm
 			spot.putFeature( JunctionIDAnalyzerFactory.FEATURE, Double.valueOf( jid ) );
 			spot.setName( "->" + jid );
 		}
-		endPointModel.getFeatureModel().putTrackFeature( trackID, DendriteTrackNIncorrectIDs.FEATURE, Double.valueOf( nUncorrectedIDJumps ) );
+		endPointTrackMate.getModel().getFeatureModel().putTrackFeature(
+				trackID, DendriteTrackNIncorrectIDs.FEATURE, Double.valueOf( nUncorrectedIDJumps ) );
 	}
 
 	@SuppressWarnings( "unused" )
@@ -303,8 +316,8 @@ public class DendriteTrackAnalysis implements Algorithm
 		datasetBranchLength.addSeries( "Branch length", new double[][] { time, branchLength } );
 		final JFreeChart chartBranchLength = ChartFactory.createXYLineChart(
 				name,
-				"Time (" + endPointModel.getTimeUnits() + ")",
-				"Branch length (" + endPointModel.getSpaceUnits() + ")",
+				"Time (" + endPointTrackMate.getModel().getTimeUnits() + ")",
+				"Branch length (" + endPointTrackMate.getModel().getSpaceUnits() + ")",
 				datasetBranchLength );
 		final ChartPanel chartBranchLengthPanel = new ChartPanel( chartBranchLength );
 
@@ -312,7 +325,7 @@ public class DendriteTrackAnalysis implements Algorithm
 		datasetJunctionID.addSeries( "Junction ID", new double[][] { time, junctionIDs } );
 		final JFreeChart chartJunctionID = ChartFactory.createXYLineChart(
 				name,
-				"Time (" + endPointModel.getTimeUnits() + ")",
+				"Time (" + endPointTrackMate.getModel().getTimeUnits() + ")",
 				"Junction ID",
 				datasetJunctionID );
 		final ChartPanel chartJunctionIDPanel = new ChartPanel( chartJunctionID );

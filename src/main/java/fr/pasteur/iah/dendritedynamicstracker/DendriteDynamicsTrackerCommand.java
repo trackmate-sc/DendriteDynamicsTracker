@@ -139,7 +139,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 */
 
 		status.showStatus( "Analyzing dendrite tracks." );
-		final DendriteTrackAnalysis dendriteTrackAnalysis = new DendriteTrackAnalysis( endPointTrackmate.getModel(), junctionModel, detectionResults );
+		final DendriteTrackAnalysis dendriteTrackAnalysis = new DendriteTrackAnalysis( endPointTrackmate, junctionModel, detectionResults );
 		if (!dendriteTrackAnalysis.checkInput() || !dendriteTrackAnalysis.process())
 		{
 			log.error( "Error while performing dendrite track analysis: " + dendriteTrackAnalysis.getErrorMessage() );
