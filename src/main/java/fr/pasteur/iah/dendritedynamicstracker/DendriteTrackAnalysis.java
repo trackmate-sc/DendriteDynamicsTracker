@@ -27,6 +27,7 @@ import fr.pasteur.iah.dendritedynamicstracker.SkeletonKeyPointsDetector.Detectio
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.BranchLengthAnalyzerFactory;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.DendriteTrackNIncorrectIDs;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
+import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.TotalBranchTravelAnalyzer;
 import net.imglib2.algorithm.Algorithm;
 import sc.fiji.analyzeSkeleton.Edge;
 import sc.fiji.analyzeSkeleton.Vertex;
@@ -76,6 +77,14 @@ public class DendriteTrackAnalysis implements Algorithm
 			 */
 			patchTrack( trackID );
 		}
+
+		/*
+		 * Re-analyze the branches features now.
+		 */
+
+		endPointTrackMate.getSettings().addTrackAnalyzer( new TotalBranchTravelAnalyzer() );
+		endPointTrackMate.computeTrackFeatures( true );
+
 		return true;
 	}
 
