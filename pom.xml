@@ -100,7 +100,7 @@
 		<dependency>
 			<groupId>sc.fiji</groupId>
 			<artifactId>TrackMate_</artifactId>
-			<version>4.0.2-SNAPSHOT</version>
+			<version>5.0.1-SNAPSHOT</version>
 		</dependency>
 		
         <!-- ImageJ dependencies -->
