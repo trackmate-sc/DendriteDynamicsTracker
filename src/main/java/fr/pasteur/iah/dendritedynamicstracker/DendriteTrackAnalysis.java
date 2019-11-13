@@ -80,7 +80,7 @@ public class DendriteTrackAnalysis implements Algorithm
 		}
 
 		/*
-		 * Re-analyze the branches features now.
+		 * Re-compute the features for the branches features now.
 		 */
 
 		endPointTrackMate.getSettings().addEdgeAnalyzer( new BranchGrowPhaseAnalyzer() );
@@ -88,7 +88,20 @@ public class DendriteTrackAnalysis implements Algorithm
 		endPointTrackMate.computeTrackFeatures( true );
 		endPointTrackMate.computeEdgeFeatures( true );
 
+		/*
+		 * Massage and export analysis results.
+		 */
+
+		exportAnalysis();
+
+
 		return true;
+	}
+
+	private void exportAnalysis()
+	{
+		// TODO Auto-generated method stub
+
 	}
 
 	/**
@@ -314,7 +327,7 @@ public class DendriteTrackAnalysis implements Algorithm
 			final double jid = bestJunctionIDs[ t ];
 			spot.putFeature( BranchLengthAnalyzerFactory.FEATURE, Double.valueOf( bl ) );
 			spot.putFeature( JunctionIDAnalyzerFactory.FEATURE, Double.valueOf( jid ) );
-			spot.setName( "->" + jid );
+			spot.setName( "->" + (int) jid );
 		}
 		endPointTrackMate.getModel().getFeatureModel().putTrackFeature(
 				trackID, DendriteTrackNIncorrectIDs.FEATURE, Double.valueOf( nUncorrectedIDJumps ) );
