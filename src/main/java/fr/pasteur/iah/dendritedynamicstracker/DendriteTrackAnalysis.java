@@ -36,6 +36,8 @@ import sc.fiji.analyzeSkeleton.Vertex;
 public class DendriteTrackAnalysis implements Algorithm
 {
 
+	private static final boolean DO_PATCH = true;
+
 	private final TrackMate endPointTrackMate;
 
 	private final Model junctionModel;
@@ -157,7 +159,7 @@ public class DendriteTrackAnalysis implements Algorithm
 				.filter( v -> !Double.isNaN( v ) )
 				.distinct()
 				.toArray();
-		if ( uniqueIDs.length > 1 )
+		if ( DO_PATCH &&  uniqueIDs.length > 1 )
 		{
 
 			/*
