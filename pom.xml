@@ -100,7 +100,7 @@
 		<dependency>
 			<groupId>sc.fiji</groupId>
 			<artifactId>TrackMate_</artifactId>
-			<version>5.0.1</version>
+			<version>5.0.3-SNAPSHOT</version>
 		</dependency>
 		
         <!-- ImageJ dependencies -->
@@ -135,5 +135,9 @@
         	<type>pom</type>
         </dependency>
 
+        <dependency>
+        	<groupId>com.opencsv</groupId>
+        	<artifactId>opencsv</artifactId>
+        </dependency>
     </dependencies>
 </project>
