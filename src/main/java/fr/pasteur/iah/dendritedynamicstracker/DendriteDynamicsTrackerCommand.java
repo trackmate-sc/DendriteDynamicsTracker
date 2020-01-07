@@ -90,6 +90,9 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	@Parameter( type = ItemIO.INPUT, label = "Merge junction tracks with end-results?" )
 	private boolean mergeJunctionTracks = false;
 
+	@Parameter( type = ItemIO.INPUT, label = "Export branch lengths and statistics to CSV files?" )
+	private boolean exportToCSV = false;
+
 	@Override
 	public void run()
 	{
@@ -140,10 +143,22 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 
 		status.showStatus( "Analyzing dendrite tracks." );
 		final DendriteTrackAnalysis dendriteTrackAnalysis = new DendriteTrackAnalysis( endPointTrackmate, junctionModel, detectionResults );
-		if (!dendriteTrackAnalysis.checkInput() || !dendriteTrackAnalysis.process())
+		if ( !dendriteTrackAnalysis.checkInput() || !dendriteTrackAnalysis.process() )
 		{
 			log.error( "Error while performing dendrite track analysis: " + dendriteTrackAnalysis.getErrorMessage() );
 			return;
+		}
+
+		/*
+		 * Export to CSV files.
+		 */
+
+		if ( exportToCSV )
+		{
+			final DendriteDynamicsCSVExporter exporter = new DendriteDynamicsCSVExporter( endPointTrackmate );
+			if ( !exporter.checkInput() || !exporter.process() )
+				log.error( "Error while exporting results:\n" + exporter.getErrorMessage() );
+
 		}
 
 		/*
@@ -310,7 +325,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		try
 		{
 			/*
-			 *  Add spots that are part of tracks.
+			 * Add spots that are part of tracks.
 			 */
 
 			// To harvest the max Id.
@@ -318,7 +333,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			for ( final int id : modelToMerge.getTrackModel().trackIDs( true ) )
 			{
 
-				if (id > maxID)
+				if ( id > maxID )
 					maxID = id;
 
 				/*
