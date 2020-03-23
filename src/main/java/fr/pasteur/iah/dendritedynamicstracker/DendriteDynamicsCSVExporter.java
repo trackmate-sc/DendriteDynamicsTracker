@@ -211,7 +211,131 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 			}
 		}
 
+		/*
+		 * Save frame by frame statistics.
+		 */
+
+		final int nFrames = trackmate.getSettings().nframes;
+
+		// Frame array.
+		final int[] frames = new int[ nFrames ];
+		for ( int t = 0; t < frames.length; t++ )
+			frames[ t ] = t;
+
+		// Time array.
+		final double[] times = new double[ nFrames ];
+		for ( int t = 0; t < times.length; t++ )
+			times[ t ] = frames[ t ] * trackmate.getSettings().dt;
+
+		// Branches birth and death.
+		final int[] branchAdditions = new int[ nFrames ];
+		final int[] branchDeletions = new int[ nFrames ];
+
+		// First we add information from tracks (nSpots >= 2).
+		for ( final Integer trackID : trackModel.trackIDs( true ) )
+		{
+
+			final List< Spot > branch = new ArrayList<>( trackModel.trackSpots( trackID ) );
+			branch.sort( Spot.frameComparator );
+
+			final Spot firstSpot = branch.get( 0 );
+			final int birthFrame = firstSpot.getFeature( Spot.FRAME ).intValue();
+			branchAdditions[ birthFrame ]++;
+
+			final Spot lastSpot = branch.get( branch.size() - 1 );
+			final int deathFrame = lastSpot.getFeature( Spot.FRAME ).intValue();
+			if ( deathFrame < nFrames )
+				branchDeletions[ deathFrame ]++;
+		}
+
+		// Second we deal with lonely spots, that do not belong in a track.
+		for ( final Spot spot : trackmate.getModel().getSpots().iterable( true ) )
+		{
+			// Skip if it belongs in a track.
+			if ( null != trackModel.trackIDOf( spot ) )
+				continue;
+
+			final int birthFrame = spot.getFeature( Spot.FRAME ).intValue();
+			branchAdditions[ birthFrame ]++;
+
+			final int deathFrame = spot.getFeature( Spot.FRAME ).intValue() + 1;
+			if ( deathFrame < nFrames )
+				branchDeletions[ deathFrame ]++;
+		}
+
+		// Branches alive.
+		final int[] nBranch = new int[ nFrames ];
+		nBranch[ 0 ] = branchAdditions[ 0 ] - branchDeletions[ 0 ];
+		for ( int t = 1; t < nBranch.length; t++ )
+			nBranch[ t ] = nBranch[ t - 1 ] + branchAdditions[ t ] - branchDeletions[ t ];
+
+		// Write all of this.
+		final String frameStatFile = determineFrameFileName( saveFolder, trackmate.getSettings().imp );
+		try (
+				Writer writer = Files.newBufferedWriter( Paths.get( frameStatFile ) );
+
+				CSVWriter csvWriter = new CSVWriter( writer,
+						CSVWriter.DEFAULT_SEPARATOR,
+						CSVWriter.NO_QUOTE_CHARACTER,
+						CSVWriter.DEFAULT_ESCAPE_CHARACTER,
+						CSVWriter.DEFAULT_LINE_END );)
+		{
+
+			final String[] header1 = new String[ 5 ];
+			final String[] header2 = new String[ 5 ];
+			header1[ 0 ] = "Frame";
+			header2[ 1 ] = "";
+			header1[ 1 ] = "Time";
+			header2[ 1 ] = "(" + TMUtils.getUnitsFor( Dimension.TIME, spaceUnits, timeUnits ) + ")";
+			header1[ 2 ] = "BranchAdditions";
+			header2[ 2 ] = "";
+			header1[ 3 ] = "BranchDeletions";
+			header2[ 3 ] = "";
+			header1[ 4 ] = "BranchesAlive";
+			header2[ 4 ] = "";
+			csvWriter.writeNext( header1 );
+			csvWriter.writeNext( header2 );
+
+			// Content of the line in the CSV file.
+			final String[] line = new String[ 5 ];
+			for ( int t = 0; t < nFrames; t++ )
+			{
+				line[ 0 ] = Integer.valueOf( frames[ t ] ).toString();
+				line[ 1 ] = Double.valueOf( times[ t ] ).toString();
+				line[ 2 ] = Integer.valueOf( branchAdditions[ t ] ).toString();
+				line[ 3 ] = Integer.valueOf( branchDeletions[ t ] ).toString();
+				line[ 4 ] = Integer.valueOf( nBranch[ t ] ).toString();
+				csvWriter.writeNext( line );
+			}
+		}
+		catch ( final IOException e )
+		{
+			errorMessage = "Could not write to " + frameStatFile + "\n";
+			errorMessage += e.getMessage();
+			return false;
+		}
+
 		return true;
+	}
+
+	private String determineFrameFileName( final File saveFolder, final ImagePlus imp )
+	{
+		if ( null == imp )
+			return new File( saveFolder, "DendriteDynamicsStatistics.csv" ).getAbsolutePath();
+
+		if ( null == imp.getOriginalFileInfo()
+				|| null == imp.getOriginalFileInfo().fileName
+				|| imp.getOriginalFileInfo().fileName.isEmpty() )
+		{
+			final String title = removeExtension( imp.getTitle() );
+			if ( null != title )
+				return new File( saveFolder, title + "_DendriteDynamicsStatistics.csv" ).getAbsolutePath();
+
+			return new File( saveFolder, "DendriteDynamicsStatistics.csv" ).getAbsolutePath();
+		}
+
+		final String target = removeExtension( imp.getOriginalFileInfo().fileName );
+		return new File( saveFolder, target + "_DendriteDynamicsStatistics.csv" ).getAbsolutePath();
 	}
 
 	private String determineBranchFileName( final File saveFolder, final ImagePlus imp, final int id, final int nDigits )
