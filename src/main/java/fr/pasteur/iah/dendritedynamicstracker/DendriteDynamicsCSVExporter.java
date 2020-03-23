@@ -147,24 +147,61 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 							CSVWriter.DEFAULT_LINE_END );)
 			{
 
-				final String[] header1 = new String[ 2 ];
-				final String[] header2 = new String[ 2 ];
+				final String[] header1 = new String[ 3 ];
+				final String[] header2 = new String[ 3 ];
 				header1[ 0 ] = "Time";
 				header2[ 0 ] = "(" + TMUtils.getUnitsFor( Dimension.TIME, spaceUnits, timeUnits ) + ")";
 				header1[ 1 ] = "BranchLength";
 				header2[ 1 ] = "(" + TMUtils.getUnitsFor( Dimension.LENGTH, spaceUnits, timeUnits ) + ")";
+				header1[ 2 ] = "BranchSpeed";
+				header2[ 2 ] = "(" + TMUtils.getUnitsFor( Dimension.VELOCITY, spaceUnits, timeUnits ) + ")";
 				csvWriter.writeNext( header1 );
 				csvWriter.writeNext( header2 );
 
 				final List< Spot > branch = new ArrayList<>( trackModel.trackSpots( trackID ) );
 				branch.sort( Spot.frameComparator );
-				final String[] line = new String[ 2 ];
+
+				// Used to compute branch velocity.
+				double previousTime = branch.get( 0 ).getFeature( Spot.POSITION_T ) - trackmate.getSettings().dt;
+				double previousLength = 0.;
+
+				// Content of the line in the CSV file.
+				final String[] line = new String[ 3 ];
+
+				// Write pre-birth of the branch as first line.
+				line[ 0 ] = Double.valueOf( previousTime ).toString();
+				line[ 1 ] = Double.valueOf( previousLength ).toString();
+				line[ 2 ] = Double.valueOf( 0. ).toString();
+				csvWriter.writeNext( line );
+
 				for ( final Spot spot : branch )
 				{
-					line[ 0 ] = spot.getFeature( Spot.POSITION_T ).toString();
-					line[ 1 ] = spot.getFeature( BranchLengthAnalyzerFactory.FEATURE ).toString();
+					// Current time.
+					final Double currentTime = spot.getFeature( Spot.POSITION_T );
+					line[ 0 ] = currentTime.toString();
+
+					// Current branch length.
+					final Double currentLength = spot.getFeature( BranchLengthAnalyzerFactory.FEATURE );
+					line[ 1 ] = currentLength.toString();
+
+					// Branch velocity
+					final double dl = currentLength.doubleValue() - previousLength;
+					final double dt = currentTime.doubleValue() - previousTime;
+					final Double currentVelocity = Double.valueOf( dl / dt );
+					line[ 2 ] = currentVelocity.toString();
+					previousLength = currentLength.doubleValue();
+					previousTime = currentTime.doubleValue();
+
+					// Write.
 					csvWriter.writeNext( line );
 				}
+
+				// Write disappearance of the branch as last line.
+				line[ 0 ] = Double.valueOf( previousTime + trackmate.getSettings().dt ).toString();
+				line[ 1 ] = Double.valueOf( 0. ).toString();
+				line[ 2 ] = Double.valueOf( -previousLength / trackmate.getSettings().dt ).toString();
+				csvWriter.writeNext( line );
+
 			}
 			catch ( final IOException e )
 			{
