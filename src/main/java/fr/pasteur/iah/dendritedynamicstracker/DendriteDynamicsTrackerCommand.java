@@ -1,5 +1,6 @@
 package fr.pasteur.iah.dendritedynamicstracker;
 
+import java.awt.Rectangle;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -38,8 +39,11 @@ import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyz
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.tracking.SkeletonEndPointTrackerFactory;
 import ij.IJ;
 import ij.ImagePlus;
+import ij.gui.Roi;
 import net.imagej.ops.OpService;
 import net.imagej.ops.special.function.Functions;
+import net.imglib2.FinalInterval;
+import net.imglib2.Interval;
 
 @Plugin( type = Command.class, name = "Dendrite Dynamics Tracker", menuPath = "Plugins>Tracking>Dendrite Dynamics Tracker" )
 public class DendriteDynamicsTrackerCommand extends ContextCommand
@@ -86,6 +90,9 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 
 	@Parameter( type = ItemIO.INPUT, label = "Matched cost-factor for end-points." )
 	private double matchedCostFactor = SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR.doubleValue();
+
+	@Parameter( type = ItemIO.INPUT, label = "Exclude dendrites found at the image borders?" )
+	private boolean pruneBorderDendrites = true;
 
 	@Parameter( type = ItemIO.INPUT, label = "Merge junction tracks with end-results?" )
 	private boolean mergeJunctionTracks = false;
@@ -136,6 +143,20 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 				mergeJunctionTracks );
 		if ( null == endPointTrackmate )
 			return;
+
+		/*
+		 * Prune dendrites found at the border of the images.
+		 */
+
+		if ( pruneBorderDendrites )
+		{
+			final Interval roi = getRoi2D( imp );
+			final double[] calibration = new double[] {
+					imp.getCalibration().pixelWidth,
+					imp.getCalibration().pixelHeight };
+			DendriteTrackFilter.pruneBorderTracks( endPointTrackmate.getModel(), roi, calibration );
+
+		}
 
 		/*
 		 * Analyze results.
@@ -413,5 +434,28 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			logger.setProgress( 0 );
 			logger.log( "Imported " + nNewTracks + " tracks and " + nNewSpots + " spots.\n" );
 		}
+	}
+
+	private static Interval getRoi2D( final ImagePlus imp )
+	{
+		final long[] min = new long[ 2 ];
+		final long[] max = new long[ 2 ];
+		final Roi roi = imp.getRoi();
+		if ( null == roi )
+		{
+			min[ 0 ] = 0;
+			min[ 1 ] = 0;
+			max[ 0 ] = imp.getWidth() - 1;
+			max[ 1 ] = imp.getHeight() - 1;
+		}
+		else
+		{
+			final Rectangle bounds = roi.getBounds();
+			min[ 0 ] = bounds.x;
+			min[ 1 ] = bounds.y;
+			max[ 0 ] = bounds.x + bounds.width - 1;
+			max[ 1 ] = bounds.y + bounds.height - 1;
+		}
+		return new FinalInterval( min, max );
 	}
 }
