@@ -11,7 +11,7 @@
  
     <groupId>fr.pasteur.iah</groupId>
     <artifactId>dendritedynamicstracker</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.4.1-SNAPSHOT</version>
  
     <name>Dendrite Dynamics Tracker</name>
     <description>A Fiji plugin to track the dynamics of dendrites in 2D time-lapse movies.</description>
