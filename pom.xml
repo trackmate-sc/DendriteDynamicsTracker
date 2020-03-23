@@ -11,7 +11,7 @@
  
     <groupId>fr.pasteur.iah</groupId>
     <artifactId>dendritedynamicstracker</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.4.0</version>
  
     <name>Dendrite Dynamics Tracker</name>
     <description>A Fiji plugin to track the dynamics of dendrites in 2D time-lapse movies.</description>
@@ -62,7 +62,7 @@
     <scm>
         <connection>scm:git:git://github.com/tinevez/DendriteDynamicsTracker</connection>
         <developerConnection>scm:git:git@github.com:tinevez/DendriteDynamicsTracker</developerConnection>
-        <tag>HEAD</tag>
+        <tag>dendritedynamicstracker-0.4.0</tag>
         <url>https://github.com/tinevez/DendriteDynamicsTracker</url>
     </scm>
     <issueManagement>
