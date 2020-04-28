@@ -137,6 +137,9 @@ public class DendriteTrackAnalysis implements Algorithm
 					: Double.NaN;
 
 			final Vertex vertex = detectionResults.getVertexFor( spot );
+			if ( vertex == null )
+				continue;
+
 			final Edge predecessor = vertex.getBranches().get( 0 );
 			if ( null == predecessor )
 				continue;
