@@ -1,14 +1,20 @@
 package fr.pasteur.iah.dendritedynamicstracker.trackmate.tracking;
 
+import static fiji.plugin.trackmate.io.IOUtils.readDoubleAttribute;
+import static fiji.plugin.trackmate.io.IOUtils.writeAttribute;
 import static fiji.plugin.trackmate.tracking.TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR;
 import static fiji.plugin.trackmate.tracking.TrackerKeys.KEY_LINKING_MAX_DISTANCE;
 import static fiji.plugin.trackmate.util.TMUtils.checkMapKeys;
 import static fiji.plugin.trackmate.util.TMUtils.checkParameter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.ImageIcon;
+
+import org.jdom2.Element;
 import org.scijava.plugin.Plugin;
 
 import fiji.plugin.trackmate.Model;
@@ -17,11 +23,11 @@ import fiji.plugin.trackmate.gui.ConfigurationPanel;
 import fiji.plugin.trackmate.gui.panels.tracker.SimpleLAPTrackerSettingsPanel;
 import fiji.plugin.trackmate.tracking.SpotTracker;
 import fiji.plugin.trackmate.tracking.SpotTrackerFactory;
-import fiji.plugin.trackmate.tracking.sparselap.SparseLAPTrackerFactory;
+import fiji.plugin.trackmate.tracking.TrackerKeys;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
 
 @Plugin( type = SpotTrackerFactory.class )
-public class SkeletonEndPointTrackerFactory extends SparseLAPTrackerFactory
+public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
 {
 	public static final String SKELETON_TRACKER_KEY = "SKELETON_END_POINT_TRACKER";
 
@@ -117,12 +123,70 @@ public class SkeletonEndPointTrackerFactory extends SparseLAPTrackerFactory
 	}
 
 	@Override
-	public String getErrorMessage()
+	public boolean marshall( final Map< String, Object > settings, final Element element )
 	{
-		if (null != errorMessage)
-			return errorMessage;
-
-		return super.getErrorMessage();
+		boolean ok = true;
+		final StringBuilder str = new StringBuilder();
+		ok = ok & writeAttribute( settings, element, KEY_LINKING_MAX_DISTANCE, Double.class, str );
+		ok = ok & writeAttribute( settings, element, KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.class, str );
+		ok = ok & writeAttribute( settings, element, KEY_MATCHED_COST_FACTOR, Double.class, str );
+		return ok;
 	}
 
+	@Override
+	public boolean unmarshall( final Element element, final Map< String, Object > settings )
+	{
+		settings.clear();
+		final StringBuilder errorHolder = new StringBuilder();
+		boolean ok = true;
+		ok = ok & readDoubleAttribute( element, settings, KEY_LINKING_MAX_DISTANCE, errorHolder );
+		ok = ok & readDoubleAttribute( element, settings, KEY_ALTERNATIVE_LINKING_COST_FACTOR, errorHolder );
+		ok = ok & readDoubleAttribute( element, settings, KEY_MATCHED_COST_FACTOR, errorHolder );
+
+		if ( !checkSettingsValidity( settings ) )
+		{
+			ok = false;
+			errorHolder.append( errorMessage ); // append validity check message
+		}
+
+		if ( !ok )
+			errorMessage = errorHolder.toString();
+
+		return ok;
+	}
+
+	@Override
+	public String getErrorMessage()
+	{
+		return errorMessage;
+	}
+
+	@Override
+	public ImageIcon getIcon()
+	{
+		return null;
+	}
+
+	@Override
+	public String toString( final Map< String, Object > sm )
+	{
+		if ( !checkSettingsValidity( sm ) )
+			return errorMessage;
+
+		final StringBuilder str = new StringBuilder();
+		str.append( String.format( "    - max distance: %.1f\n", ( Double ) sm.get( KEY_LINKING_MAX_DISTANCE ) ) );
+		str.append( String.format( "    - matched-cost factor: %.1f\n", ( Double ) sm.get( KEY_MATCHED_COST_FACTOR ) ) );
+
+		return str.toString();
+	}
+
+	@Override
+	public Map< String, Object > getDefaultSettings()
+	{
+		final Map< String, Object > trackerSettings = new HashMap<>();
+		trackerSettings.put( TrackerKeys.KEY_LINKING_MAX_DISTANCE, Double.valueOf( 5. ) );
+		trackerSettings.put( TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.valueOf( TrackerKeys.DEFAULT_ALTERNATIVE_LINKING_COST_FACTOR ) );
+		trackerSettings.put( SkeletonEndPointTrackerFactory.KEY_MATCHED_COST_FACTOR, Double.valueOf( 10. ) );
+		return trackerSettings;
+	}
 }
