@@ -6,8 +6,11 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+
+import org.apache.commons.io.FilenameUtils;
 
 import com.opencsv.CSVWriter;
 
@@ -52,11 +55,11 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 		 * Determine where to save the CSV files.
 		 */
 
-		final String saveFolderStr = determineSaveFolder( trackmate.getSettings().imp );
-		final File saveFolder = new File( saveFolderStr );
-		if ( !saveFolder.canWrite() )
+		final String rootFolderStr = determineRootSaveFolder( trackmate.getSettings().imp );
+		final File rootFolder = new File( rootFolderStr );
+		if ( !rootFolder.canWrite() )
 		{
-			errorMessage = "Cannot write to save folder: " + saveFolder;
+			errorMessage = "Cannot write to save folder: " + rootFolder;
 			return false;
 		}
 
@@ -70,7 +73,7 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 		final List< String > trackFeatures = new ArrayList<>( fm.getTrackFeatures() );
 		final Set< Integer > trackIDs = trackmate.getModel().getTrackModel().trackIDs( true );
 
-		final String trackStatFile = determineStatFileName( saveFolder, trackmate.getSettings().imp );
+		final String trackStatFile = determineStatFileName( rootFolder, trackmate.getSettings().imp );
 		try (
 				Writer writer = Files.newBufferedWriter( Paths.get( trackStatFile ) );
 
@@ -132,11 +135,12 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 		 * Save individual branch length.
 		 */
 
+		final String saveFolderIndividuals = determineIndividualFilesSaveFolder( rootFolder, trackmate.getSettings().imp );
 		final int nDigits = getNDigits( trackIDs );
 		final TrackModel trackModel = trackmate.getModel().getTrackModel();
 		for ( final Integer trackID : trackIDs )
 		{
-			final String branchFile = determineBranchFileName( saveFolder, trackmate.getSettings().imp, trackID, nDigits );
+			final String branchFile = determineBranchFileName( new File( saveFolderIndividuals ), trackmate.getSettings().imp, trackID, nDigits );
 			try (
 					Writer writer = Files.newBufferedWriter( Paths.get( branchFile ) );
 
@@ -246,6 +250,7 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 			final int deathFrame = lastSpot.getFeature( Spot.FRAME ).intValue();
 			if ( deathFrame < nFrames )
 				branchDeletions[ deathFrame ]++;
+
 		}
 
 		// Second we deal with lonely spots, that do not belong in a track.
@@ -269,8 +274,25 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 		for ( int t = 1; t < nBranch.length; t++ )
 			nBranch[ t ] = nBranch[ t - 1 ] + branchAdditions[ t ] - branchDeletions[ t ];
 
+		/*
+		 * Get total branch length at frame t: Sum for all spots at that frame.
+		 */
+
+		final double[] totalBranchLength = new double[ nFrames ];
+		for ( int frame = 0; frame < nFrames; frame++ )
+		{
+			double tb = 0.;
+			for ( final Spot spot : trackmate.getModel().getSpots().iterable( Integer.valueOf( frame ), true ) )
+			{
+				final Double branchLength = spot.getFeature( BranchLengthAnalyzerFactory.FEATURE );
+				if ( null != branchLength && !branchLength.isNaN() )
+					tb += branchLength.doubleValue();
+			}
+			totalBranchLength[ frame ] = tb;
+		}
+
 		// Write all of this.
-		final String frameStatFile = determineFrameFileName( saveFolder, trackmate.getSettings().imp );
+		final String frameStatFile = determineFrameFileName( rootFolder, trackmate.getSettings().imp );
 		try (
 				Writer writer = Files.newBufferedWriter( Paths.get( frameStatFile ) );
 
@@ -293,6 +315,8 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 			header2[ 3 ] = "";
 			header1[ 4 ] = "BranchesAlive";
 			header2[ 4 ] = "";
+			header1[ 4 ] = "TotalBranchLength";
+			header2[ 4 ] = "(" + TMUtils.getUnitsFor( Dimension.LENGTH, spaceUnits, timeUnits ) + ")";
 			csvWriter.writeNext( header1 );
 			csvWriter.writeNext( header2 );
 
@@ -305,6 +329,7 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 				line[ 2 ] = Integer.valueOf( branchAdditions[ t ] ).toString();
 				line[ 3 ] = Integer.valueOf( branchDeletions[ t ] ).toString();
 				line[ 4 ] = Integer.valueOf( nBranch[ t ] ).toString();
+				line[ 4 ] = Double.valueOf( totalBranchLength[ t ] ).toString();
 				csvWriter.writeNext( line );
 			}
 		}
@@ -380,6 +405,7 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 		return new File( saveFolder, target + "_DendriteTracksStatistics.csv" ).getAbsolutePath();
 	}
 
+
 	/**
 	 * Returns a target folder where to save some data, based on the specified
 	 * {@link ImagePlus}. If file info can be retrieved from it, we use it to
@@ -390,7 +416,7 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 	 *            the {@link ImagePlus}.
 	 * @return a target folder for saving CSV files.
 	 */
-	private String determineSaveFolder( final ImagePlus imp )
+	private String determineRootSaveFolder( final ImagePlus imp )
 	{
 		final String userHome = System.getProperty( "user.home" );
 		if ( null == imp
@@ -399,12 +425,52 @@ public class DendriteDynamicsCSVExporter implements Algorithm
 				|| imp.getOriginalFileInfo().directory.isEmpty() )
 			return userHome;
 
-		final String target = imp.getOriginalFileInfo().directory;
-		final File targetFile = new File( target );
-		if ( !targetFile.canWrite() )
+		final String root = imp.getOriginalFileInfo().directory;
+		final File rootFolder = new File( root );
+		if ( !rootFolder.canWrite() )
 			return userHome;
 
-		return target;
+		return root;
+	}
+
+	/**
+	 * Returns a target folder where to save some data, based on the specified
+	 * {@link ImagePlus}. If file info can be retrieved from it, we use it to
+	 * return a save folder. In any other use case we return the user home
+	 * directory.
+	 *
+	 * @param imp
+	 *            the {@link ImagePlus}.
+	 * @return a target folder for saving CSV files.
+	 */
+	private String determineIndividualFilesSaveFolder( final File rootFolder, final ImagePlus imp )
+	{
+		final String userHome = System.getProperty( "user.home" );
+		if ( !rootFolder.canWrite() )
+		{
+			final File targetFolder = new File( userHome, imp.getShortTitle() );
+			if ( !targetFolder.exists() )
+			{
+				final boolean created = targetFolder.mkdir();
+				if ( !created )
+					return userHome;
+			}
+			return targetFolder.getAbsolutePath();
+		}
+
+		final String fileNameStr = FilenameUtils.removeExtension( imp.getOriginalFileInfo().fileName );
+		final File targetFolder = new File( rootFolder, fileNameStr );
+		if ( !targetFolder.exists() )
+		{
+			final boolean created = targetFolder.mkdir();
+			if ( !created )
+				return rootFolder.getAbsolutePath();
+		}
+
+		// Remove all CSV in it.
+		Arrays.stream( targetFolder.listFiles( ( f, p ) -> p.toLowerCase().endsWith( "csv" ) ) ).forEach( File::delete );
+
+		return targetFolder.getAbsolutePath();
 	}
 
 	@Override
