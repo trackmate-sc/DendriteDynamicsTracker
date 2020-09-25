@@ -18,3 +18,10 @@ t/.mvn/wrapper/maven-wrapper.jar
 
 # Sample folder.
 samples/
+
+# Docuemnts
+Documents
+
+# Travis stuff.
+.travis
+.travis.yml
