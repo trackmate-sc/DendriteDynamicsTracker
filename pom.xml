@@ -76,7 +76,7 @@
     <properties>
         <main-class>fr.pasteur.iah.dendritedynamicstracker.DendriteDynamicsTracker</main-class>
         <package-name>fr.pasteur.iah.dendritedynamicstracker</package-name>
-        <license.licenseName>BSD3</license.licenseName>
+        <license.licenseName> bsd_3</license.licenseName>
         <license.copyrightOwners>Institut Pasteur</license.copyrightOwners>
     </properties>
  
