@@ -19,12 +19,11 @@ import org.scijava.plugin.Plugin;
 
 import fiji.plugin.trackmate.Model;
 import fiji.plugin.trackmate.SpotCollection;
-import fiji.plugin.trackmate.gui.ConfigurationPanel;
-import fiji.plugin.trackmate.gui.panels.tracker.SimpleLAPTrackerSettingsPanel;
+import fiji.plugin.trackmate.gui.components.ConfigurationPanel;
+import fiji.plugin.trackmate.gui.components.tracker.SimpleLAPTrackerSettingsPanel;
 import fiji.plugin.trackmate.tracking.SpotTracker;
 import fiji.plugin.trackmate.tracking.SpotTrackerFactory;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
-import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
 
 @Plugin( type = SpotTrackerFactory.class )
 public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
@@ -188,5 +187,11 @@ public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
 		trackerSettings.put( TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.valueOf( TrackerKeys.DEFAULT_ALTERNATIVE_LINKING_COST_FACTOR ) );
 		trackerSettings.put( SkeletonEndPointTrackerFactory.KEY_MATCHED_COST_FACTOR, Double.valueOf( 10. ) );
 		return trackerSettings;
+	}
+
+	@Override
+	public SpotTrackerFactory copy()
+	{
+		return new SkeletonEndPointTrackerFactory();
 	}
 }

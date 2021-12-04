@@ -1,14 +1,17 @@
 package fr.pasteur.iah.dendritedynamicstracker.action;
 
+import java.awt.Frame;
+
 import javax.swing.ImageIcon;
 
 import org.scijava.plugin.Plugin;
 
+import fiji.plugin.trackmate.SelectionModel;
 import fiji.plugin.trackmate.TrackMate;
 import fiji.plugin.trackmate.action.AbstractTMAction;
 import fiji.plugin.trackmate.action.TrackMateAction;
 import fiji.plugin.trackmate.action.TrackMateActionFactory;
-import fiji.plugin.trackmate.gui.TrackMateGUIController;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings;
 import fr.pasteur.iah.dendritedynamicstracker.DendriteDynamicsCSVExporter;
 
 public class ExportDDTResultsToCSVAction extends AbstractTMAction
@@ -31,7 +34,7 @@ public class ExportDDTResultsToCSVAction extends AbstractTMAction
 			+ "</html>";
 
 	@Override
-	public void execute( final TrackMate trackmate )
+	public void execute( final TrackMate trackmate, final SelectionModel selectionModel, final DisplaySettings displaySettings, final Frame parent )
 	{
 		logger.log( "Exporting to CSV files...\n" );
 		final DendriteDynamicsCSVExporter exporter = new DendriteDynamicsCSVExporter( trackmate );
@@ -58,12 +61,6 @@ public class ExportDDTResultsToCSVAction extends AbstractTMAction
 		}
 
 		@Override
-		public TrackMateAction create( final TrackMateGUIController controller )
-		{
-			return new ExportDDTResultsToCSVAction();
-		}
-
-		@Override
 		public ImageIcon getIcon()
 		{
 			return ICON;
@@ -75,5 +72,10 @@ public class ExportDDTResultsToCSVAction extends AbstractTMAction
 			return NAME;
 		}
 
+		@Override
+		public TrackMateAction create()
+		{
+			return new ExportDDTResultsToCSVAction();
+		}
 	}
 }

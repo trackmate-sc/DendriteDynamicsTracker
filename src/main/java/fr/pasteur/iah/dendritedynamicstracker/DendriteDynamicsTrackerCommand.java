@@ -1,9 +1,12 @@
 package fr.pasteur.iah.dendritedynamicstracker;
 
+import static fiji.plugin.trackmate.gui.Icons.TRACKMATE_ICON;
+
 import java.awt.Rectangle;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Set;
+
+import javax.swing.JFrame;
 
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.scijava.ItemIO;
@@ -16,6 +19,7 @@ import org.scijava.plugin.Plugin;
 
 import fiji.plugin.trackmate.Logger;
 import fiji.plugin.trackmate.Model;
+import fiji.plugin.trackmate.SelectionModel;
 import fiji.plugin.trackmate.Settings;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.TrackMate;
@@ -25,14 +29,15 @@ import fiji.plugin.trackmate.features.edges.EdgeTargetAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackIndexAnalyzer;
 import fiji.plugin.trackmate.gui.GuiUtils;
-import fiji.plugin.trackmate.gui.TrackMateGUIController;
-import fiji.plugin.trackmate.gui.descriptors.ConfigureViewsDescriptor;
-import fiji.plugin.trackmate.providers.EdgeAnalyzerProvider;
-import fiji.plugin.trackmate.providers.SpotAnalyzerProvider;
-import fiji.plugin.trackmate.providers.TrackAnalyzerProvider;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettingsIO;
+import fiji.plugin.trackmate.gui.wizard.TrackMateWizardSequence;
+import fiji.plugin.trackmate.gui.wizard.WizardSequence;
+import fiji.plugin.trackmate.gui.wizard.descriptors.ConfigureViewsDescriptor;
 import fiji.plugin.trackmate.tracking.LAPUtils;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
 import fiji.plugin.trackmate.tracking.sparselap.SimpleSparseLAPTrackerFactory;
+import fiji.plugin.trackmate.visualization.TrackMateModelView;
 import fiji.plugin.trackmate.visualization.hyperstack.HyperStackDisplayer;
 import fr.pasteur.iah.dendritedynamicstracker.SkeletonKeyPointsDetector.DetectionResults;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
@@ -186,13 +191,22 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		 * Display results.
 		 */
 
-		final TrackMateGUIController controller2 = new TrackMateGUIController( endPointTrackmate );
-		controller2.setGUIStateString( ConfigureViewsDescriptor.KEY );
-		GuiUtils.positionWindow( controller2.getGUI(), imp.getWindow() );
+		// Main objects.
+		final Model model = endPointTrackmate.getModel();
+		final SelectionModel selectionModel = new SelectionModel( model );
+		final DisplaySettings displaySettings = DisplaySettingsIO.readUserDefault();
 
-		final HyperStackDisplayer displayer2 = new HyperStackDisplayer( endPointTrackmate.getModel(), controller2.getSelectionModel(), imp );
-		controller2.getGuimodel().addView( displayer2 );
+		// Main view.
+		final TrackMateModelView displayer2 = new HyperStackDisplayer( model, selectionModel, imp, displaySettings );
 		displayer2.render();
+
+		// Wizard.
+		final WizardSequence sequence = new TrackMateWizardSequence( endPointTrackmate, selectionModel, displaySettings );
+		sequence.setCurrent( ConfigureViewsDescriptor.KEY );
+		final JFrame frame = sequence.run( "TrackMate on " + imp.getShortTitle() );
+		frame.setIconImage( TRACKMATE_ICON.getImage() );
+		GuiUtils.positionWindow( frame, imp.getWindow() );
+		frame.setVisible( true );
 	}
 
 	public static TrackMate trackEndPoints(
@@ -208,28 +222,11 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		endPointModel.setPhysicalUnits( imp.getCalibration().getUnits(), imp.getCalibration().getTimeUnit() );
 		endPointModel.setSpots( detectionResults.endPointSpots, false );
 
-		final Settings endPointSettings = new Settings();
-		endPointSettings.setFrom( imp );
+		final Settings endPointSettings = new Settings( imp );
 		endPointSettings.detectorFactory = new ManualDetectorFactory<>();
 		endPointSettings.trackerFactory = new SkeletonEndPointTrackerFactory();
 
-		endPointSettings.clearSpotAnalyzerFactories();
-		final SpotAnalyzerProvider spotAnalyzerProvider = new SpotAnalyzerProvider();
-		final List< String > spotAnalyzerKeys = spotAnalyzerProvider.getKeys();
-		for ( final String key : spotAnalyzerKeys )
-			endPointSettings.addSpotAnalyzerFactory( spotAnalyzerProvider.getFactory( key ) );
-
-		endPointSettings.clearEdgeAnalyzers();
-		final EdgeAnalyzerProvider edgeAnalyzerProvider = new EdgeAnalyzerProvider();
-		final List< String > edgeAnalyzerKeys = edgeAnalyzerProvider.getKeys();
-		for ( final String key : edgeAnalyzerKeys )
-			endPointSettings.addEdgeAnalyzer( edgeAnalyzerProvider.getFactory( key ) );
-
-		endPointSettings.clearTrackAnalyzers();
-		final TrackAnalyzerProvider trackAnalyzerProvider = new TrackAnalyzerProvider();
-		final List< String > trackAnalyzerKeys = trackAnalyzerProvider.getKeys();
-		for ( final String key : trackAnalyzerKeys )
-			endPointSettings.addTrackAnalyzer( trackAnalyzerProvider.getFactory( key ) );
+		endPointSettings.addAllAnalyzers();
 
 		endPointSettings.addSpotAnalyzerFactory( new JunctionIDAnalyzerFactory<>() );
 		endPointSettings.trackerSettings = new HashMap<>();
@@ -275,8 +272,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		junctionModel.setPhysicalUnits( imp.getCalibration().getUnits(), imp.getCalibration().getTimeUnit() );
 		junctionModel.setSpots( detectionResults.junctionsSpots, false );
 
-		final Settings junctionSettings = new Settings();
-		junctionSettings.setFrom( imp );
+		final Settings junctionSettings = new Settings( imp );
 		junctionSettings.detectorFactory = new ManualDetectorFactory<>();
 		junctionSettings.trackerFactory = new SimpleSparseLAPTrackerFactory();
 		junctionSettings.trackerSettings = LAPUtils.getDefaultLAPSettingsMap();

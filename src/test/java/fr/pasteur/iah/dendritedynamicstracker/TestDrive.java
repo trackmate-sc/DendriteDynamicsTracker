@@ -2,7 +2,7 @@ package fr.pasteur.iah.dendritedynamicstracker;
 
 import java.io.IOException;
 
-import fiji.plugin.trackmate.TrackMatePlugIn_;
+import fiji.plugin.trackmate.TrackMatePlugIn;
 import net.imagej.ImageJ;
 
 public class TestDrive
@@ -18,7 +18,6 @@ public class TestDrive
 		final Object obj = ij.io().open( traceImgName );
 		ij.ui().show( obj );
 
-		new TrackMatePlugIn_().run( null );
+		new TrackMatePlugIn().run( null );
 	}
-
 }

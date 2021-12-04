@@ -10,7 +10,6 @@ import javax.swing.ImageIcon;
 import org.scijava.plugin.Plugin;
 
 import fiji.plugin.trackmate.Dimension;
-import fiji.plugin.trackmate.Model;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzer;
 import fiji.plugin.trackmate.features.spot.SpotAnalyzerFactory;
@@ -111,43 +110,19 @@ public class BranchLengthAnalyzerFactory< T extends RealType< T > & NativeType< 
 	}
 
 	@Override
-	public SpotAnalyzer< T > getAnalyzer( final Model model, final ImgPlus< T > img, final int frame, final int channel )
+	public SpotAnalyzer< T > getAnalyzer( final ImgPlus< T > img, final int frame, final int channel )
 	{
 		return new SpotAnalyzer< T >()
 		{
 
-			private long processingTime;
-
 			@Override
-			public boolean checkInput()
+			public void process( final Iterable< Spot > spots )
 			{
-				return true;
-			}
-
-			@Override
-			public boolean process()
-			{
-				final long start = System.currentTimeMillis();
-				for ( final Spot spot : model.getSpots().iterable( false ) )
+				for ( final Spot spot : spots )
 				{
 					if ( null == spot.getFeature( FEATURE ) )
 						spot.putFeature( FEATURE, Double.NaN );
 				}
-				final long end = System.currentTimeMillis();
-				processingTime = end - start;
-				return true;
-			}
-
-			@Override
-			public String getErrorMessage()
-			{
-				return "";
-			}
-
-			@Override
-			public long getProcessingTime()
-			{
-				return processingTime;
 			}
 		};
 	}

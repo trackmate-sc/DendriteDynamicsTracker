@@ -1,8 +1,12 @@
 package fr.pasteur.iah.dendritedynamicstracker;
 
+import static fiji.plugin.trackmate.gui.Icons.TRACKMATE_ICON;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.swing.JFrame;
 
 import fiji.plugin.trackmate.Model;
 import fiji.plugin.trackmate.SelectionModel;
@@ -15,13 +19,15 @@ import fiji.plugin.trackmate.features.edges.EdgeTargetAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackDurationAnalyzer;
 import fiji.plugin.trackmate.features.track.TrackIndexAnalyzer;
 import fiji.plugin.trackmate.gui.GuiUtils;
-import fiji.plugin.trackmate.gui.TrackMateGUIController;
-import fiji.plugin.trackmate.gui.descriptors.ConfigureViewsDescriptor;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings.TrackMateObject;
+import fiji.plugin.trackmate.gui.displaysettings.DisplaySettingsIO;
+import fiji.plugin.trackmate.gui.wizard.TrackMateWizardSequence;
+import fiji.plugin.trackmate.gui.wizard.WizardSequence;
+import fiji.plugin.trackmate.gui.wizard.descriptors.ConfigureViewsDescriptor;
 import fiji.plugin.trackmate.tracking.LAPUtils;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
 import fiji.plugin.trackmate.tracking.sparselap.SimpleSparseLAPTrackerFactory;
-import fiji.plugin.trackmate.visualization.SpotColorGenerator;
-import fiji.plugin.trackmate.visualization.TrackMateModelView;
 import fiji.plugin.trackmate.visualization.hyperstack.HyperStackDisplayer;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.BranchLengthAnalyzerFactory;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
@@ -58,8 +64,7 @@ public class TestGraph
 		 * TrackMate settings.
 		 */
 
-		final Settings settings = new Settings();
-		settings.setFrom( imp );
+		final Settings settings = new Settings( imp );
 		settings.detectorFactory = new ManualDetectorFactory<>();
 		settings.trackerFactory = new SimpleSparseLAPTrackerFactory();
 		settings.trackerSettings = LAPUtils.getDefaultLAPSettingsMap();
@@ -164,17 +169,21 @@ public class TestGraph
 		 * Show results.
 		 */
 
-		final HyperStackDisplayer displayer = new HyperStackDisplayer( model, new SelectionModel( model ), imp );
-		final SpotColorGenerator spotColorGenerator = new SpotColorGenerator( model );
-		spotColorGenerator.setFeature( BranchLengthAnalyzerFactory.FEATURE );
-		displayer.setDisplaySettings( TrackMateModelView.KEY_SPOT_COLORING, spotColorGenerator );
+		final DisplaySettings ds = DisplaySettingsIO.readUserDefault();
+		ds.setSpotColorBy( TrackMateObject.SPOTS, BranchLengthAnalyzerFactory.FEATURE );
+
+		final SelectionModel selectionModel = new SelectionModel( model );
+
+		final HyperStackDisplayer displayer = new HyperStackDisplayer( model, selectionModel, imp, ds );
 		displayer.render();
 
-		final TrackMateGUIController controller = new TrackMateGUIController( trackmate );
-		controller.setGUIStateString( ConfigureViewsDescriptor.KEY );
-		controller.getGuimodel().addView( displayer );
-		GuiUtils.positionWindow( controller.getGUI(), imp.getWindow() );
-
+		// Wizard.
+		final WizardSequence sequence = new TrackMateWizardSequence( trackmate, selectionModel, ds );
+		final JFrame frame2 = sequence.run( "TrackMate on " + imp.getShortTitle() );
+		sequence.setCurrent( ConfigureViewsDescriptor.KEY );
+		frame2.setIconImage( TRACKMATE_ICON.getImage() );
+		GuiUtils.positionWindow( frame2, imp.getWindow() );
+		frame2.setVisible( true );
 	}
 
 	private static final Spot vertexToSpot( final Vertex vertex, final Calibration calibration, final int frame )
