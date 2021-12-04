@@ -77,9 +77,8 @@ public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
 	 * linking two skeleton end-points that connect to the same junction track.
 	 * For instance if the distance-based cost to link e1 and e2 is 250 but they
 	 * are connected to the same junction track, as tracked by the junction
-	 * track ID stored in the {@link JunctionIDAnalyzerFactory#FEATURE}, the
-	 * actual linking cost will be 250 divided by the factor stored in this
-	 * parameter.
+	 * track ID stored in the JunctionIDAnalyzerFactory#FEATURE, the actual
+	 * linking cost will be 250 divided by the factor stored in this parameter.
 	 */
 	public static final String KEY_MATCHED_COST_FACTOR = "MATCHED_COST_FACTOR";
 
