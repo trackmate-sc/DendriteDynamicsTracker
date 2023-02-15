@@ -34,8 +34,7 @@ package fr.pasteur.iah.dendritedynamicstracker.trackmate.tracking;
 
 import static fiji.plugin.trackmate.io.IOUtils.readDoubleAttribute;
 import static fiji.plugin.trackmate.io.IOUtils.writeAttribute;
-import static fiji.plugin.trackmate.tracking.TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR;
-import static fiji.plugin.trackmate.tracking.TrackerKeys.KEY_LINKING_MAX_DISTANCE;
+import static fiji.plugin.trackmate.tracking.TrackerKeys.*;
 import static fiji.plugin.trackmate.util.TMUtils.checkMapKeys;
 import static fiji.plugin.trackmate.util.TMUtils.checkParameter;
 
@@ -57,9 +56,8 @@ import fiji.plugin.trackmate.tracking.SpotTracker;
 import fiji.plugin.trackmate.tracking.SpotTrackerFactory;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
 
-@Plugin( type = SpotTrackerFactory.class )
-public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
-{
+@Plugin(type = SpotTrackerFactory.class)
+public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory {
 	public static final String SKELETON_TRACKER_KEY = "SKELETON_END_POINT_TRACKER";
 
 	public static final String SKELETON_TRACKER_NAME = "Skeleton end-point tracker";
@@ -85,49 +83,41 @@ public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
 	/**
 	 * Default value for {@link #KEY_MATCHED_COST_FACTOR}.
 	 */
-	public static final Double DEFAULT_MATCHED_COST_FACTOR = Double.valueOf( 10. );
+	public static final Double DEFAULT_MATCHED_COST_FACTOR = Double.valueOf(10.);
 
 	private String errorMessage;
 
 	@Override
-	public String getKey()
-	{
+	public String getKey() {
 		return SKELETON_TRACKER_KEY;
 	}
 
 	@Override
-	public String getName()
-	{
+	public String getName() {
 		return SKELETON_TRACKER_NAME;
 	}
 
 	@Override
-	public String getInfoText()
-	{
+	public String getInfoText() {
 		return SKELETON_TRACKER_INFO_TEXT;
 	}
 
 	@Override
-	public SpotTracker create( final SpotCollection spots, final Map< String, Object > settings )
-	{
-		return new SkeletonEndPointTracker( spots, settings );
+	public SpotTracker create(final SpotCollection spots, final Map<String, Object> settings) {
+		return new SkeletonEndPointTracker(spots, settings);
 	}
 
 	@Override
-	public ConfigurationPanel getTrackerConfigurationPanel( final Model model )
-	{
+	public ConfigurationPanel getTrackerConfigurationPanel(final Model model) {
 		final String spaceUnits = model.getSpaceUnits();
-		return new SimpleLAPTrackerSettingsPanel( getName(), SKELETON_TRACKER_INFO_TEXT, spaceUnits );
+		return new SimpleLAPTrackerSettingsPanel(getName(), SKELETON_TRACKER_INFO_TEXT, spaceUnits);
 	}
 
-
 	@Override
-	public boolean checkSettingsValidity( final Map< String, Object > settings )
-	{
+	public boolean checkSettingsValidity(final Map<String, Object> settings) {
 		errorMessage = null;
 
-		if ( null == settings )
-		{
+		if (null == settings) {
 			errorMessage = "Settings map is null.\n";
 			return false;
 		}
@@ -135,94 +125,104 @@ public class SkeletonEndPointTrackerFactory implements SpotTrackerFactory
 		final StringBuilder errorHolder = new StringBuilder();
 		boolean ok = true;
 		// Linking
-		ok = ok & checkParameter( settings, KEY_LINKING_MAX_DISTANCE, Double.class, errorHolder );
-		ok = ok & checkParameter( settings, KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.class, errorHolder );
-		ok = ok & checkParameter( settings, KEY_MATCHED_COST_FACTOR, Double.class, errorHolder );
+		ok = ok & checkParameter(settings, KEY_LINKING_MAX_DISTANCE, Double.class, errorHolder);
+		ok = ok & checkParameter(settings, KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.class, errorHolder);
+		ok = ok & checkParameter(settings, KEY_MATCHED_COST_FACTOR, Double.class, errorHolder);
+
+		ok = ok & checkParameter(settings, KEY_GAP_CLOSING_MAX_DISTANCE, Double.class, errorHolder);
+		ok = ok & checkParameter(settings, KEY_GAP_CLOSING_MAX_FRAME_GAP, Integer.class, errorHolder);
+		ok = ok & checkParameter(settings, KEY_ALLOW_GAP_CLOSING, Boolean.class, errorHolder);
 		// Check keys
 		final List<String> mandatoryKeys = new ArrayList<>();
 		mandatoryKeys.add(KEY_LINKING_MAX_DISTANCE);
 		mandatoryKeys.add(KEY_ALTERNATIVE_LINKING_COST_FACTOR);
 		mandatoryKeys.add(KEY_MATCHED_COST_FACTOR);
+		mandatoryKeys.add(KEY_GAP_CLOSING_MAX_DISTANCE);
+		mandatoryKeys.add(KEY_GAP_CLOSING_MAX_FRAME_GAP);
+		mandatoryKeys.add(KEY_ALLOW_GAP_CLOSING);
 		final List<String> optionalKeys = new ArrayList<>();
-		ok = ok & checkMapKeys( settings, mandatoryKeys, optionalKeys, errorHolder );
+		ok = ok & checkMapKeys(settings, mandatoryKeys, optionalKeys, errorHolder);
 
-		if ( !ok )
+		if (!ok)
 			errorMessage = errorHolder.toString();
 
 		return ok;
 	}
 
 	@Override
-	public boolean marshall( final Map< String, Object > settings, final Element element )
-	{
+	public boolean marshall(final Map<String, Object> settings, final Element element) {
 		boolean ok = true;
 		final StringBuilder str = new StringBuilder();
-		ok = ok & writeAttribute( settings, element, KEY_LINKING_MAX_DISTANCE, Double.class, str );
-		ok = ok & writeAttribute( settings, element, KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.class, str );
-		ok = ok & writeAttribute( settings, element, KEY_MATCHED_COST_FACTOR, Double.class, str );
+		ok = ok & writeAttribute(settings, element, KEY_LINKING_MAX_DISTANCE, Double.class, str);
+		ok = ok & writeAttribute(settings, element, KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.class, str);
+		ok = ok & writeAttribute(settings, element, KEY_MATCHED_COST_FACTOR, Double.class, str);
+		ok = ok & writeAttribute(settings, element, KEY_GAP_CLOSING_MAX_DISTANCE, Double.class, str);
+		ok = ok & writeAttribute(settings, element, KEY_GAP_CLOSING_MAX_FRAME_GAP, Integer.class, str);
+		ok = ok & writeAttribute(settings, element, KEY_ALLOW_GAP_CLOSING, Boolean.class, str);
 		return ok;
 	}
 
 	@Override
-	public boolean unmarshall( final Element element, final Map< String, Object > settings )
-	{
+	public boolean unmarshall(final Element element, final Map<String, Object> settings) {
 		settings.clear();
 		final StringBuilder errorHolder = new StringBuilder();
 		boolean ok = true;
-		ok = ok & readDoubleAttribute( element, settings, KEY_LINKING_MAX_DISTANCE, errorHolder );
-		ok = ok & readDoubleAttribute( element, settings, KEY_ALTERNATIVE_LINKING_COST_FACTOR, errorHolder );
-		ok = ok & readDoubleAttribute( element, settings, KEY_MATCHED_COST_FACTOR, errorHolder );
+		ok = ok & readDoubleAttribute(element, settings, KEY_LINKING_MAX_DISTANCE, errorHolder);
+		ok = ok & readDoubleAttribute(element, settings, KEY_ALTERNATIVE_LINKING_COST_FACTOR, errorHolder);
+		ok = ok & readDoubleAttribute(element, settings, KEY_MATCHED_COST_FACTOR, errorHolder);
+		ok = ok & readDoubleAttribute(element, settings, KEY_GAP_CLOSING_MAX_DISTANCE, errorHolder);
+		ok = ok & readDoubleAttribute(element, settings, KEY_GAP_CLOSING_MAX_FRAME_GAP, errorHolder);
+		ok = ok & readDoubleAttribute(element, settings, KEY_ALLOW_GAP_CLOSING, errorHolder);
 
-		if ( !checkSettingsValidity( settings ) )
-		{
+		if (!checkSettingsValidity(settings)) {
 			ok = false;
-			errorHolder.append( errorMessage ); // append validity check message
+			errorHolder.append(errorMessage); // append validity check message
 		}
 
-		if ( !ok )
+		if (!ok)
 			errorMessage = errorHolder.toString();
 
 		return ok;
 	}
 
 	@Override
-	public String getErrorMessage()
-	{
+	public String getErrorMessage() {
 		return errorMessage;
 	}
 
 	@Override
-	public ImageIcon getIcon()
-	{
+	public ImageIcon getIcon() {
 		return null;
 	}
 
 	@Override
-	public String toString( final Map< String, Object > sm )
-	{
-		if ( !checkSettingsValidity( sm ) )
+	public String toString(final Map<String, Object> sm) {
+		if (!checkSettingsValidity(sm))
 			return errorMessage;
 
 		final StringBuilder str = new StringBuilder();
-		str.append( String.format( "    - max distance: %.1f\n", ( Double ) sm.get( KEY_LINKING_MAX_DISTANCE ) ) );
-		str.append( String.format( "    - matched-cost factor: %.1f\n", ( Double ) sm.get( KEY_MATCHED_COST_FACTOR ) ) );
+		str.append(String.format("    - max distance: %.1f\n", (Double) sm.get(KEY_LINKING_MAX_DISTANCE)));
+		str.append(String.format("    - matched-cost factor: %.1f\n", (Double) sm.get(KEY_MATCHED_COST_FACTOR)));
 
 		return str.toString();
 	}
 
 	@Override
-	public Map< String, Object > getDefaultSettings()
-	{
-		final Map< String, Object > trackerSettings = new HashMap<>();
-		trackerSettings.put( TrackerKeys.KEY_LINKING_MAX_DISTANCE, Double.valueOf( 5. ) );
-		trackerSettings.put( TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR, Double.valueOf( TrackerKeys.DEFAULT_ALTERNATIVE_LINKING_COST_FACTOR ) );
-		trackerSettings.put( SkeletonEndPointTrackerFactory.KEY_MATCHED_COST_FACTOR, Double.valueOf( 10. ) );
+	public Map<String, Object> getDefaultSettings() {
+		final Map<String, Object> trackerSettings = new HashMap<>();
+		trackerSettings.put(TrackerKeys.KEY_LINKING_MAX_DISTANCE, Double.valueOf(5.));
+		trackerSettings.put(TrackerKeys.KEY_ALTERNATIVE_LINKING_COST_FACTOR,
+				Double.valueOf(TrackerKeys.DEFAULT_ALTERNATIVE_LINKING_COST_FACTOR));
+		trackerSettings.put(SkeletonEndPointTrackerFactory.KEY_MATCHED_COST_FACTOR, Double.valueOf(10.));
+		trackerSettings.put(TrackerKeys.KEY_ALLOW_GAP_CLOSING, Boolean.TRUE);
+		trackerSettings.put(TrackerKeys.KEY_GAP_CLOSING_MAX_DISTANCE,
+				Double.valueOf(5.));
+		trackerSettings.put(TrackerKeys.KEY_GAP_CLOSING_MAX_FRAME_GAP, Integer.valueOf(2));
 		return trackerSettings;
 	}
 
 	@Override
-	public SpotTrackerFactory copy()
-	{
+	public SpotTrackerFactory copy() {
 		return new SkeletonEndPointTrackerFactory();
 	}
 }
