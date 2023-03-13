@@ -85,8 +85,8 @@ import net.imglib2.Interval;
 @Plugin(type = Command.class, name = "Dendrite Dynamics Tracker", menuPath = "Plugins>Tracking>Dendrite Dynamics Tracker")
 public class DendriteDynamicsTrackerCommand extends ContextCommand {
 
-	private static final String[] PRUNNING_METHOD_STRINGS = new String[] {
-			"No prunning",
+	private static final String[] PRUNING_METHOD_STRINGS = new String[] {
+			"No pruning",
 			"Shortest branch",
 			"Lowest intensity pixel",
 			"Lowest intensity branch"
@@ -116,13 +116,13 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand {
 	@Parameter(type = ItemIO.INPUT, label = "Max Frame Gap for junctions.")
 	private int junctionMaxFrameGap = 2;
 
-	@Parameter(label = "Cycle-prunning method.", choices = {
-			"No prunning",
+	@Parameter(label = "Cycle-pruning method.", choices = {
+			"No pruning",
 			"Shortest branch",
 			"Lowest intensity pixel",
 			"Lowest intensity branch"
 	})
-	private String cyclePrunningMethodStr = PRUNNING_METHOD_STRINGS[3];
+	private String cyclePruningMethodStr = PRUNING_METHOD_STRINGS[3];
 
 	@Parameter(type = ItemIO.INPUT, label = "Max linking distance for end-points.")
 	private double endPointMaxLinkingDistance = 5.;
@@ -149,10 +149,10 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand {
 		 * Detect junctions and end-points.
 		 */
 
-		final int prunningMethod = getPrunningMethod(cyclePrunningMethodStr);
+		final int pruningMethod = getPruningMethod(cyclePruningMethodStr);
 		final SkeletonKeyPointsDetector skeletonKeyPointOp = (SkeletonKeyPointsDetector) Functions.unary(
 				ops, SkeletonKeyPointsDetector.class, DetectionResults.class, ImagePlus.class,
-				skeletonChannel, dataChannel, prunningMethod);
+				skeletonChannel, dataChannel, pruningMethod);
 
 		final DetectionResults detectionResults = skeletonKeyPointOp.calculate(imp);
 		if (null == detectionResults)
@@ -368,9 +368,9 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand {
 		return junctionModel;
 	}
 
-	private static final int getPrunningMethod(final String cyclePrunningMethodStr) {
-		for (int i = 0; i < PRUNNING_METHOD_STRINGS.length; i++)
-			if (PRUNNING_METHOD_STRINGS[i].equals(cyclePrunningMethodStr))
+	private static final int getPruningMethod(final String cyclePruningMethodStr) {
+		for (int i = 0; i < PRUNING_METHOD_STRINGS.length; i++)
+			if (PRUNING_METHOD_STRINGS[i].equals(cyclePruningMethodStr))
 				return i;
 
 		return 3;

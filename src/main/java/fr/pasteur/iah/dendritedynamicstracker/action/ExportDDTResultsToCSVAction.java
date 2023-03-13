@@ -46,10 +46,10 @@ import fiji.plugin.trackmate.action.TrackMateActionFactory;
 import fiji.plugin.trackmate.gui.displaysettings.DisplaySettings;
 import fr.pasteur.iah.dendritedynamicstracker.DendriteDynamicsCSVExporter;
 
-public class ExportDDTResultsToCSVAction extends AbstractTMAction
-{
+public class ExportDDTResultsToCSVAction extends AbstractTMAction {
 
-	public static final ImageIcon ICON = new ImageIcon( ExportDDTResultsToCSVAction.class.getResource( "images/page_white_excel.png" ) );
+	public static final ImageIcon ICON = new ImageIcon(
+			ExportDDTResultsToCSVAction.class.getResource("images/page_white_excel.png"));
 
 	public static final String NAME = "Export Dendrite Dynamics Tracker results to CSV";
 
@@ -66,47 +66,41 @@ public class ExportDDTResultsToCSVAction extends AbstractTMAction
 			+ "</html>";
 
 	@Override
-	public void execute( final TrackMate trackmate, final SelectionModel selectionModel, final DisplaySettings displaySettings, final Frame parent )
-	{
-		logger.log( "Exporting to CSV files...\n" );
-		final DendriteDynamicsCSVExporter exporter = new DendriteDynamicsCSVExporter( trackmate );
-		if ( !exporter.checkInput() || !exporter.process() )
-			logger.error( "Error while exporting results:\n" + exporter.getErrorMessage() );
+	public void execute(final TrackMate trackmate, final SelectionModel selectionModel,
+			final DisplaySettings displaySettings, final Frame parent) {
+		logger.log("Exporting to CSV files...\n");
+		final DendriteDynamicsCSVExporter exporter = new DendriteDynamicsCSVExporter(trackmate);
+		if (!exporter.checkInput() || !exporter.process())
+			logger.error("Error while exporting results:\n" + exporter.getErrorMessage());
 		else
-			logger.log( "Done.\n" );
+			logger.log("Done.\n");
 	}
 
-	@Plugin( type = TrackMateActionFactory.class )
-	public static class Factory implements TrackMateActionFactory
-	{
+	@Plugin(type = TrackMateActionFactory.class)
+	public static class Factory implements TrackMateActionFactory {
 
 		@Override
-		public String getInfoText()
-		{
+		public String getInfoText() {
 			return INFO_TEXT;
 		}
 
 		@Override
-		public String getKey()
-		{
+		public String getKey() {
 			return KEY;
 		}
 
 		@Override
-		public ImageIcon getIcon()
-		{
+		public ImageIcon getIcon() {
 			return ICON;
 		}
 
 		@Override
-		public String getName()
-		{
+		public String getName() {
 			return NAME;
 		}
 
 		@Override
-		public TrackMateAction create()
-		{
+		public TrackMateAction create() {
 			return new ExportDDTResultsToCSVAction();
 		}
 	}
