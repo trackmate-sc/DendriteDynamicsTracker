@@ -2,7 +2,7 @@
  * #%L
  * A Fiji plugin to track the dynamics of dendrites in 2D time-lapse movies.
  * %%
- * Copyright (C) 2019 - 2021 Institut Pasteur
+ * Copyright (C) 2019 - 2023 Institut Pasteur
  * %%
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
