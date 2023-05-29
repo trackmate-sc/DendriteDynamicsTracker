@@ -105,13 +105,13 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	private final ImagePlus imp = null;
 
 	@Parameter( type = ItemIO.INPUT, label = "In what channel is the skeleton?" )
-	private final int skeletonChannel = 2;
+	private int skeletonChannel = 2;
 
 	@Parameter( type = ItemIO.INPUT, label = "In what channel is raw data?" )
-	private final int dataChannel = 1;
+	private int dataChannel = 1;
 
 	@Parameter( type = ItemIO.INPUT, label = "Max linking distance for junctions." )
-	private final double junctionMaxLinkingDistance = 5.;
+	private double junctionMaxLinkingDistance = 5.;
 
 	@Parameter( label = "Cycle-prunning method.", choices = {
 			"No prunning",
@@ -119,22 +119,22 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			"Lowest intensity pixel",
 			"Lowest intensity branch"
 	} )
-	private final String cyclePrunningMethodStr = PRUNNING_METHOD_STRINGS[ 3 ];
+	private String cyclePrunningMethodStr = PRUNNING_METHOD_STRINGS[ 3 ];
 
 	@Parameter( type = ItemIO.INPUT, label = "Max linking distance for end-points." )
-	private final double endPointMaxLinkingDistance = 5.;
+	private double endPointMaxLinkingDistance = 5.;
 
 	@Parameter( type = ItemIO.INPUT, label = "Matched cost-factor for end-points." )
-	private final double matchedCostFactor = SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR.doubleValue();
+	private double matchedCostFactor = SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR.doubleValue();
 
 	@Parameter( type = ItemIO.INPUT, label = "Exclude dendrites found at the image borders?" )
-	private final boolean pruneBorderDendrites = true;
+	private boolean pruneBorderDendrites = true;
 
 	@Parameter( type = ItemIO.INPUT, label = "Merge junction tracks with end-results?" )
-	private final boolean mergeJunctionTracks = false;
+	private boolean mergeJunctionTracks = false;
 
 	@Parameter( type = ItemIO.INPUT, label = "Export branch lengths and statistics to CSV files?" )
-	private final boolean exportToCSV = false;
+	private boolean exportToCSV = false;
 
 	@Override
 	public void run()
