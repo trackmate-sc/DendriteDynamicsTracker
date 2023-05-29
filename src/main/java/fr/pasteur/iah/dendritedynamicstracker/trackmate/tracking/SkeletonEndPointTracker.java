@@ -37,8 +37,8 @@ import java.util.Map;
 import fiji.plugin.trackmate.Spot;
 import fiji.plugin.trackmate.SpotCollection;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
-import fiji.plugin.trackmate.tracking.sparselap.SparseLAPFrameToFrameTracker;
-import fiji.plugin.trackmate.tracking.sparselap.costfunction.CostFunction;
+import fiji.plugin.trackmate.tracking.jaqaman.SparseLAPFrameToFrameTracker;
+import fiji.plugin.trackmate.tracking.jaqaman.costfunction.CostFunction;
 import fr.pasteur.iah.dendritedynamicstracker.trackmate.feature.JunctionIDAnalyzerFactory;
 
 public class SkeletonEndPointTracker extends SparseLAPFrameToFrameTracker

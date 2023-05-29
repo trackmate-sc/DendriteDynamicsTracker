@@ -6,18 +6,18 @@
  * %%
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
  *    list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the Institut Pasteur / IAH nor the names of its contributors
  *    may be used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -66,9 +66,8 @@ import fiji.plugin.trackmate.gui.displaysettings.DisplaySettingsIO;
 import fiji.plugin.trackmate.gui.wizard.TrackMateWizardSequence;
 import fiji.plugin.trackmate.gui.wizard.WizardSequence;
 import fiji.plugin.trackmate.gui.wizard.descriptors.ConfigureViewsDescriptor;
-import fiji.plugin.trackmate.tracking.LAPUtils;
 import fiji.plugin.trackmate.tracking.TrackerKeys;
-import fiji.plugin.trackmate.tracking.sparselap.SimpleSparseLAPTrackerFactory;
+import fiji.plugin.trackmate.tracking.jaqaman.SimpleSparseLAPTrackerFactory;
 import fiji.plugin.trackmate.visualization.TrackMateModelView;
 import fiji.plugin.trackmate.visualization.hyperstack.HyperStackDisplayer;
 import fr.pasteur.iah.dendritedynamicstracker.SkeletonKeyPointsDetector.DetectionResults;
@@ -103,16 +102,16 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	private OpService ops;
 
 	@Parameter( type = ItemIO.INPUT )
-	private ImagePlus imp = null;
+	private final ImagePlus imp = null;
 
 	@Parameter( type = ItemIO.INPUT, label = "In what channel is the skeleton?" )
-	private int skeletonChannel = 2;
+	private final int skeletonChannel = 2;
 
 	@Parameter( type = ItemIO.INPUT, label = "In what channel is raw data?" )
-	private int dataChannel = 1;
+	private final int dataChannel = 1;
 
 	@Parameter( type = ItemIO.INPUT, label = "Max linking distance for junctions." )
-	private double junctionMaxLinkingDistance = 5.;
+	private final double junctionMaxLinkingDistance = 5.;
 
 	@Parameter( label = "Cycle-prunning method.", choices = {
 			"No prunning",
@@ -120,22 +119,22 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 			"Lowest intensity pixel",
 			"Lowest intensity branch"
 	} )
-	private String cyclePrunningMethodStr = PRUNNING_METHOD_STRINGS[ 3 ];
+	private final String cyclePrunningMethodStr = PRUNNING_METHOD_STRINGS[ 3 ];
 
 	@Parameter( type = ItemIO.INPUT, label = "Max linking distance for end-points." )
-	private double endPointMaxLinkingDistance = 5.;
+	private final double endPointMaxLinkingDistance = 5.;
 
 	@Parameter( type = ItemIO.INPUT, label = "Matched cost-factor for end-points." )
-	private double matchedCostFactor = SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR.doubleValue();
+	private final double matchedCostFactor = SkeletonEndPointTrackerFactory.DEFAULT_MATCHED_COST_FACTOR.doubleValue();
 
 	@Parameter( type = ItemIO.INPUT, label = "Exclude dendrites found at the image borders?" )
-	private boolean pruneBorderDendrites = true;
+	private final boolean pruneBorderDendrites = true;
 
 	@Parameter( type = ItemIO.INPUT, label = "Merge junction tracks with end-results?" )
-	private boolean mergeJunctionTracks = false;
+	private final boolean mergeJunctionTracks = false;
 
 	@Parameter( type = ItemIO.INPUT, label = "Export branch lengths and statistics to CSV files?" )
-	private boolean exportToCSV = false;
+	private final boolean exportToCSV = false;
 
 	@Override
 	public void run()
@@ -307,7 +306,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		final Settings junctionSettings = new Settings( imp );
 		junctionSettings.detectorFactory = new ManualDetectorFactory<>();
 		junctionSettings.trackerFactory = new SimpleSparseLAPTrackerFactory();
-		junctionSettings.trackerSettings = LAPUtils.getDefaultLAPSettingsMap();
+		junctionSettings.trackerSettings = junctionSettings.trackerFactory.getDefaultSettings();
 		junctionSettings.addEdgeAnalyzer( new EdgeTargetAnalyzer() );
 		junctionSettings.addTrackAnalyzer( new TrackIndexAnalyzer() );
 		junctionSettings.addTrackAnalyzer( new TrackDurationAnalyzer() );
