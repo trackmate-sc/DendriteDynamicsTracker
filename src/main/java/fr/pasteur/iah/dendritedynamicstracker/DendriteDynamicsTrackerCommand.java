@@ -102,7 +102,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	private OpService ops;
 
 	@Parameter( type = ItemIO.INPUT )
-	private final ImagePlus imp = null;
+	private ImagePlus imp = null;
 
 	@Parameter( type = ItemIO.INPUT, label = "In what channel is the skeleton?" )
 	private int skeletonChannel = 2;
@@ -243,7 +243,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 	public static TrackMate trackEndPoints(
 			final DetectionResults detectionResults,
 			final Model junctionModel,
-			final ImagePlus imp,
+			ImagePlus imp,
 			final double endPointMaxLinkingDistance,
 			final double matchedCostFactor,
 			final boolean mergeJunctionTracks )
@@ -295,7 +295,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 
 	public static Model trackJunctions(
 			final DetectionResults detectionResults,
-			final ImagePlus imp,
+			ImagePlus imp,
 			final double junctionMaxLinkingDistance )
 	{
 
@@ -463,7 +463,7 @@ public class DendriteDynamicsTrackerCommand extends ContextCommand
 		}
 	}
 
-	private static Interval getRoi2D( final ImagePlus imp )
+	private static Interval getRoi2D( ImagePlus imp )
 	{
 		final long[] min = new long[ 2 ];
 		final long[] max = new long[ 2 ];
