@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="https://maven.apache.org/POM/4.0.0" xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
  
     <parent>
@@ -24,7 +24,7 @@
     <licenses>
          <license>
             <name>BSD-style</name>
-            <url>http://pmd.sourceforge.net/license.html</url>
+            <url>https://pmd.sourceforge.net/license.html</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
@@ -67,7 +67,7 @@
     </scm>
     <issueManagement>
         <system>GitHub Issues</system>
-        <url>http://github.com/tinevez/DendriteDynamicsTracker/issues</url>
+        <url>https://github.com/tinevez/DendriteDynamicsTracker/issues</url>
     </issueManagement>
     <ciManagement>
         <system>None</system>
@@ -83,7 +83,7 @@
     <repositories>
         <repository>
             <id>imagej.public</id>
-            <url>http://maven.imagej.net/content/groups/public</url>
+            <url>https://maven.imagej.net/content/groups/public</url>
         </repository>
     </repositories>
  
